@@ -478,7 +478,12 @@ struct hb_sanitize_context_t :
   }
 
   template <typename Type>
-  hb_blob_t *reference_table (const hb_face_t *face, hb_tag_t tableTag = Type::tableTag)
+  hb_blob_t *reference_table (const hb_face_t *face) {
+    return reference_table<Type>(face, Type::tableTag);
+  }
+
+  template <typename Type>
+  hb_blob_t *reference_table (const hb_face_t *face, hb_tag_t tableTag)
   {
     if (!num_glyphs_set)
       set_num_glyphs (hb_face_get_glyph_count (face));
