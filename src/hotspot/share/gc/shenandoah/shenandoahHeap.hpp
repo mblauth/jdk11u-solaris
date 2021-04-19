@@ -248,7 +248,7 @@ public:
     EVACUATION_BITPOS = 2,
 
     // Heap is under updating: needs no additional barriers.
-    UPDATEREFS_BITPOS = 3,
+    UPDATEREFS_BITPOS = 3
   };
 
   enum GCState {
@@ -256,7 +256,7 @@ public:
     HAS_FORWARDED = 1 << HAS_FORWARDED_BITPOS,
     MARKING       = 1 << MARKING_BITPOS,
     EVACUATION    = 1 << EVACUATION_BITPOS,
-    UPDATEREFS    = 1 << UPDATEREFS_BITPOS,
+    UPDATEREFS    = 1 << UPDATEREFS_BITPOS
   };
 
 private:
