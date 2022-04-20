@@ -100,7 +100,7 @@ class Deoptimization : AllStatic {
     // DataLayout::trap_bits.  This dependency is enforced indirectly
     // via asserts, to avoid excessive direct header-to-header dependencies.
     // See Deoptimization::trap_state_reason and class DataLayout.
-    Reason_RECORDED_LIMIT = Reason_profile_predicate,  // some are not recorded per bc
+    Reason_RECORDED_LIMIT = Reason_profile_predicate  // some are not recorded per bc
   };
 
   // What action must be taken by the runtime?
