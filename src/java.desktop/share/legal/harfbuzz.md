@@ -1,19 +1,28 @@
-## Harfbuzz v2.8
+## Harfbuzz v2.3.1
 
 ### Harfbuzz License
 
+<<<<<<< HEAD
 https://github.com/harfbuzz/harfbuzz/blob/4.4.1/COPYING
+=======
+http://cgit.freedesktop.org/harfbuzz/tree/COPYING
+>>>>>>> Revert "8261169: Upgrade HarfBuzz to the latest 2.8.0" due to incompatibility with Solaris Studio 12u4
 
 <pre>
 
-HarfBuzz is licensed under the so-called "Old MIT" license.  Details follow.
+HarfBuzz is licensed under the so-called "Old MIT" license. Details follow.
 For parts of HarfBuzz that are licensed under different licenses see individual
 files names COPYING in subdirectories where applicable.
 
+<<<<<<< HEAD
 Copyright © 2010-2022  Google, Inc.
 Copyright © 2018-2020  Ebrahim Byagowi
 Copyright © 2019-2020  Facebook, Inc.
 Copyright © 2012-2015  Mozilla Foundation.
+=======
+Copyright © 2010,2011,2012  Google, Inc.
+Copyright © 2012  Mozilla Foundation
+>>>>>>> Revert "8261169: Upgrade HarfBuzz to the latest 2.8.0" due to incompatibility with Solaris Studio 12u4
 Copyright © 2011  Codethink Limited
 Copyright © 2008-2010  Nokia Corporation and/or its subsidiary(-ies)
 Copyright © 2009  Keith Stribley

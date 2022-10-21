@@ -24,10 +24,6 @@
  * Google Author(s): Behdad Esfahbod
  */
 
-#include "hb.hh"
-
-#ifndef HB_NO_OT_SHAPE
-
 #include "hb-ot-shape-complex.hh"
 
 
@@ -119,7 +115,7 @@ data_destroy_hangul (void *data)
 #define isHangulTone(u) (hb_in_range<hb_codepoint_t> ((u), 0x302Eu, 0x302Fu))
 
 /* buffer var allocations */
-#define hangul_shaping_feature() complex_var_u8_auxiliary() /* hangul jamo shaping feature */
+#define hangul_shaping_feature() complex_var_u8_0() /* hangul jamo shaping feature */
 
 static bool
 is_zero_width_char (hb_font_t *font,
@@ -205,7 +201,7 @@ preprocess_text_hangul (const hb_ot_shape_plan_t *plan HB_UNUSED,
       {
         /* Tone mark follows a valid syllable; move it in front, unless it's zero width. */
         buffer->unsafe_to_break_from_outbuffer (start, buffer->idx);
-        if (unlikely (!buffer->next_glyph ())) break;
+        buffer->next_glyph ();
         if (!is_zero_width_char (font, u))
         {
           buffer->merge_out_clusters (start, end + 1);
@@ -218,25 +214,22 @@ preprocess_text_hangul (const hb_ot_shape_plan_t *plan HB_UNUSED,
       else
       {
         /* No valid syllable as base for tone mark; try to insert dotted circle. */
-        if (!(buffer->flags & HB_BUFFER_FLAG_DO_NOT_INSERT_DOTTED_CIRCLE) &&
-            font->has_glyph (0x25CCu))
+        if (font->has_glyph (0x25CCu))
         {
           hb_codepoint_t chars[2];
-          if (!is_zero_width_char (font, u))
-          {
+          if (!is_zero_width_char (font, u)) {
             chars[0] = u;
             chars[1] = 0x25CCu;
-          } else
-          {
+          } else {
             chars[0] = 0x25CCu;
             chars[1] = u;
           }
-          (void) buffer->replace_glyphs (1, 2, chars);
+          buffer->replace_glyphs (1, 2, chars);
         }
         else
         {
           /* No dotted circle available in the font; just leave tone mark untouched. */
-          (void) buffer->next_glyph ();
+          buffer->next_glyph ();
         }
       }
       start = end = buffer->out_len;
@@ -273,7 +266,9 @@ preprocess_text_hangul (const hb_ot_shape_plan_t *plan HB_UNUSED,
           hb_codepoint_t s = SBase + (l - LBase) * NCount + (v - VBase) * TCount + tindex;
           if (font->has_glyph (s))
           {
-            (void) buffer->replace_glyphs (t ? 3 : 2, 1, &s);
+            buffer->replace_glyphs (t ? 3 : 2, 1, &s);
+            if (unlikely (!buffer->successful))
+              return;
             end = start + 1;
             continue;
           }
@@ -285,19 +280,17 @@ preprocess_text_hangul (const hb_ot_shape_plan_t *plan HB_UNUSED,
          * Set jamo features on the individual glyphs, and advance past them.
          */
         buffer->cur().hangul_shaping_feature() = LJMO;
-        (void) buffer->next_glyph ();
+        buffer->next_glyph ();
         buffer->cur().hangul_shaping_feature() = VJMO;
-        (void) buffer->next_glyph ();
+        buffer->next_glyph ();
         if (t)
         {
           buffer->cur().hangul_shaping_feature() = TJMO;
-          (void) buffer->next_glyph ();
+          buffer->next_glyph ();
           end = start + 3;
         }
         else
           end = start + 2;
-        if (unlikely (!buffer->successful))
-          break;
         if (buffer->cluster_level == HB_BUFFER_CLUSTER_LEVEL_MONOTONE_GRAPHEMES)
           buffer->merge_out_clusters (start, end);
         continue;
@@ -323,7 +316,9 @@ preprocess_text_hangul (const hb_ot_shape_plan_t *plan HB_UNUSED,
         hb_codepoint_t new_s = s + new_tindex;
         if (font->has_glyph (new_s))
         {
-          (void) buffer->replace_glyphs (2, 1, &new_s);
+          buffer->replace_glyphs (2, 1, &new_s);
+          if (unlikely (!buffer->successful))
+            return;
           end = start + 1;
           continue;
         }
@@ -347,18 +342,19 @@ preprocess_text_hangul (const hb_ot_shape_plan_t *plan HB_UNUSED,
             (!tindex || font->has_glyph (decomposed[2])))
         {
           unsigned int s_len = tindex ? 3 : 2;
-          (void) buffer->replace_glyphs (1, s_len, decomposed);
+          buffer->replace_glyphs (1, s_len, decomposed);
 
           /* If we decomposed an LV because of a non-combining T following,
            * we want to include this T in the syllable.
            */
           if (has_glyph && !tindex)
           {
-            (void) buffer->next_glyph ();
+            buffer->next_glyph ();
             s_len++;
           }
+
           if (unlikely (!buffer->successful))
-            break;
+            return;
 
           /* We decomposed S: apply jamo features to the individual glyphs
            * that are now in buffer->out_info.
@@ -382,15 +378,17 @@ preprocess_text_hangul (const hb_ot_shape_plan_t *plan HB_UNUSED,
 
       if (has_glyph)
       {
-        /* We didn't decompose the S, so just advance past it and fall through. */
+        /* We didn't decompose the S, so just advance past it. */
         end = start + 1;
+        buffer->next_glyph ();
+        continue;
       }
     }
 
     /* Didn't find a recognizable syllable, so we leave end <= start;
      * this will prevent tone-mark reordering happening.
      */
-    (void) buffer->next_glyph ();
+    buffer->next_glyph ();
   }
   buffer->swap_buffers ();
 }
@@ -431,6 +429,3 @@ const hb_ot_complex_shaper_t _hb_ot_complex_shaper_hangul =
   HB_OT_SHAPE_ZERO_WIDTH_MARKS_NONE,
   false, /* fallback_position */
 };
-
-
-#endif

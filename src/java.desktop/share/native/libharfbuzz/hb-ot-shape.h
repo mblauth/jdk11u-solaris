@@ -24,7 +24,7 @@
  * Red Hat Author(s): Behdad Esfahbod
  */
 
-#if !defined(HB_OT_H_IN) && !defined(HB_NO_SINGLE_HEADER_ERROR)
+#ifndef HB_OT_H_IN
 #error "Include <hb-ot.h> instead."
 #endif
 

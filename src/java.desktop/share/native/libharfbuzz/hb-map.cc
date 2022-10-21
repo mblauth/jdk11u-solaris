@@ -42,9 +42,7 @@
 /**
  * hb_map_create: (Xconstructor)
  *
- * Creates a new, initially empty map.
- *
- * Return value: (transfer full): The new #hb_map_t
+ * Return value: (transfer full):
  *
  * Since: 1.7.7
  **/
@@ -64,25 +62,21 @@ hb_map_create ()
 /**
  * hb_map_get_empty:
  *
- * Fetches the singleton empty #hb_map_t.
- *
- * Return value: (transfer full): The empty #hb_map_t
+ * Return value: (transfer full):
  *
  * Since: 1.7.7
  **/
 hb_map_t *
 hb_map_get_empty ()
 {
-  return const_cast<hb_map_t *> (&Null (hb_map_t));
+  return const_cast<hb_map_t *> (&Null(hb_map_t));
 }
 
 /**
  * hb_map_reference: (skip)
- * @map: A map
+ * @map: a map.
  *
- * Increases the reference count on a map.
- *
- * Return value: (transfer full): The map
+ * Return value: (transfer full):
  *
  * Since: 1.7.7
  **/
@@ -94,11 +88,7 @@ hb_map_reference (hb_map_t *map)
 
 /**
  * hb_map_destroy: (skip)
- * @map: A map
- *
- * Decreases the reference count on a map. When
- * the reference count reaches zero, the map is
- * destroyed, freeing all memory.
+ * @map: a map.
  *
  * Since: 1.7.7
  **/
@@ -114,15 +104,13 @@ hb_map_destroy (hb_map_t *map)
 
 /**
  * hb_map_set_user_data: (skip)
- * @map: A map
- * @key: The user-data key to set
- * @data: A pointer to the user data to set
- * @destroy: (nullable): A callback to call when @data is not needed anymore
- * @replace: Whether to replace an existing data with the same key
+ * @map: a map.
+ * @key:
+ * @data:
+ * @destroy:
+ * @replace:
  *
- * Attaches a user-data key/data pair to the specified map.
- *
- * Return value: %true if success, %false otherwise
+ * Return value:
  *
  * Since: 1.7.7
  **/
@@ -138,13 +126,10 @@ hb_map_set_user_data (hb_map_t           *map,
 
 /**
  * hb_map_get_user_data: (skip)
- * @map: A map
- * @key: The user-data key to query
+ * @map: a map.
+ * @key:
  *
- * Fetches the user data associated with the specified key,
- * attached to the specified map.
- *
- * Return value: (transfer none): A pointer to the user data
+ * Return value: (transfer none):
  *
  * Since: 1.7.7
  **/
@@ -158,11 +143,11 @@ hb_map_get_user_data (hb_map_t           *map,
 
 /**
  * hb_map_allocation_successful:
- * @map: A map
+ * @map: a map.
  *
- * Tests whether memory allocation for a set was successful.
  *
- * Return value: %true if allocation succeeded, %false otherwise
+ *
+ * Return value:
  *
  * Since: 1.7.7
  **/
@@ -175,11 +160,11 @@ hb_map_allocation_successful (const hb_map_t  *map)
 
 /**
  * hb_map_set:
- * @map: A map
- * @key: The key to store in the map
- * @value: The value to store for @key
+ * @map: a map.
+ * @key:
+ * @value:
  *
- * Stores @key:@value in the map.
+ *
  *
  * Since: 1.7.7
  **/
@@ -193,10 +178,10 @@ hb_map_set (hb_map_t       *map,
 
 /**
  * hb_map_get:
- * @map: A map
- * @key: The key to query
+ * @map: a map.
+ * @key:
  *
- * Fetches the value stored for @key in @map.
+ *
  *
  * Since: 1.7.7
  **/
@@ -209,10 +194,10 @@ hb_map_get (const hb_map_t *map,
 
 /**
  * hb_map_del:
- * @map: A map
- * @key: The key to delete
+ * @map: a map.
+ * @key:
  *
- * Removes @key and its stored value from @map.
+ *
  *
  * Since: 1.7.7
  **/
@@ -225,12 +210,10 @@ hb_map_del (hb_map_t       *map,
 
 /**
  * hb_map_has:
- * @map: A map
- * @key: The key to query
+ * @map: a map.
+ * @key:
  *
- * Tests whether @key is an element of @map.
  *
- * Return value: %true if @key is found in @map, %false otherwise
  *
  * Since: 1.7.7
  **/
@@ -244,28 +227,23 @@ hb_map_has (const hb_map_t *map,
 
 /**
  * hb_map_clear:
- * @map: A map
+ * @map: a map.
  *
- * Clears out the contents of @map.
+ *
  *
  * Since: 1.7.7
  **/
 void
 hb_map_clear (hb_map_t *map)
 {
-  if (unlikely (hb_object_is_immutable (map)))
-    return;
-
   return map->clear ();
 }
 
 /**
  * hb_map_is_empty:
- * @map: A map
+ * @map: a map.
  *
- * Tests whether @map is empty (contains no elements).
  *
- * Return value: %true if @map is empty
  *
  * Since: 1.7.7
  **/
@@ -277,11 +255,9 @@ hb_map_is_empty (const hb_map_t *map)
 
 /**
  * hb_map_get_population:
- * @map: A map
+ * @map: a map.
  *
- * Returns the number of key-value pairs in the map.
  *
- * Return value: The population of @map
  *
  * Since: 1.7.7
  **/

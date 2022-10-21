@@ -48,7 +48,7 @@ struct VertOriginMetric
   }
 
   public:
-  HBGlyphID     glyph;
+  GlyphID       glyph;
   FWORD         vertOriginY;
 
   public:
@@ -69,48 +69,94 @@ struct VORG
     return vertYOrigins[i].vertOriginY;
   }
 
-  template <typename Iterator,
-            hb_requires (hb_is_iterator (Iterator))>
-  void serialize (hb_serialize_context_t *c,
-                  Iterator it,
-                  FWORD defaultVertOriginY)
+  bool _subset (const hb_subset_plan_t *plan HB_UNUSED,
+                const VORG *vorg_table,
+                const hb_vector_t<VertOriginMetric> &subset_metrics,
+                unsigned int dest_sz,
+                void *dest) const
   {
+    hb_serialize_context_t c (dest, dest_sz);
 
-    if (unlikely (!c->extend_min ((*this))))  return;
+    VORG *subset_table = c.start_serialize<VORG> ();
+    if (unlikely (!c.extend_min (*subset_table)))
+      return false;
 
-    this->version.major = 1;
-    this->version.minor = 0;
+    subset_table->version.major.set (1);
+    subset_table->version.minor.set (0);
 
-    this->defaultVertOriginY = defaultVertOriginY;
-    this->vertYOrigins.len = it.len ();
+    subset_table->defaultVertOriginY.set (vorg_table->defaultVertOriginY);
+    subset_table->vertYOrigins.len.set (subset_metrics.length);
 
-    c->copy_all (it);
+    bool success = true;
+    if (subset_metrics.length > 0)
+    {
+      unsigned int  size = VertOriginMetric::static_size * subset_metrics.length;
+      VertOriginMetric  *metrics = c.allocate_size<VertOriginMetric> (size);
+      if (likely (metrics != nullptr))
+        memcpy (metrics, &subset_metrics[0], size);
+      else
+        success = false;
+    }
+    c.end_serialize ();
+
+    return success;
   }
 
-  bool subset (hb_subset_context_t *c) const
+  bool subset (hb_subset_plan_t *plan) const
   {
-    TRACE_SUBSET (this);
-    VORG *vorg_prime = c->serializer->start_embed<VORG> ();
-    if (unlikely (!c->serializer->check_success (vorg_prime))) return_trace (false);
+    hb_blob_t *vorg_blob = hb_sanitize_context_t().reference_table<VORG> (plan->source);
+    const VORG *vorg_table = vorg_blob->as<VORG> ();
 
-    auto it =
-    + vertYOrigins.as_array ()
-    | hb_filter (c->plan->glyphset (), &VertOriginMetric::glyph)
-    | hb_map ([&] (const VertOriginMetric& _)
-              {
-                hb_codepoint_t new_glyph = HB_SET_VALUE_INVALID;
-                c->plan->new_gid_for_old_gid (_.glyph, &new_glyph);
+    /* count the number of glyphs to be included in the subset table */
+    hb_vector_t<VertOriginMetric> subset_metrics;
+    subset_metrics.init ();
+    unsigned int glyph = 0;
+    unsigned int i = 0;
+    while ((glyph < plan->glyphs.length) && (i < vertYOrigins.len))
+    {
+      if (plan->glyphs[glyph] > vertYOrigins[i].glyph)
+        i++;
+      else if (plan->glyphs[glyph] < vertYOrigins[i].glyph)
+        glyph++;
+      else
+      {
+        VertOriginMetric *metrics = subset_metrics.push ();
+        metrics->glyph.set (glyph);
+        metrics->vertOriginY.set (vertYOrigins[i].vertOriginY);
+        glyph++;
+        i++;
+      }
+    }
 
-                VertOriginMetric metric;
-                metric.glyph = new_glyph;
-                metric.vertOriginY = _.vertOriginY;
-                return metric;
-              })
-    ;
+    /* alloc the new table */
+    unsigned int dest_sz = VORG::min_size + VertOriginMetric::static_size * subset_metrics.length;
+    void *dest = (void *) malloc (dest_sz);
+    if (unlikely (!dest))
+    {
+      subset_metrics.fini ();
+      hb_blob_destroy (vorg_blob);
+      return false;
+    }
 
     /* serialize the new table */
-    vorg_prime->serialize (c->serializer, it, defaultVertOriginY);
-    return_trace (true);
+    if (!_subset (plan, vorg_table, subset_metrics, dest_sz, dest))
+    {
+      subset_metrics.fini ();
+      free (dest);
+      hb_blob_destroy (vorg_blob);
+      return false;
+    }
+
+    hb_blob_t *result = hb_blob_create ((const char *)dest,
+                                        dest_sz,
+                                        HB_MEMORY_MODE_READONLY,
+                                        dest,
+                                        free);
+    bool success = plan->add_table (HB_OT_TAG_VORG, result);
+    hb_blob_destroy (result);
+    subset_metrics.fini ();
+    hb_blob_destroy (vorg_blob);
+    return success;
   }
 
   bool sanitize (hb_sanitize_context_t *c) const
@@ -122,11 +168,10 @@ struct VORG
   }
 
   protected:
-  FixedVersion<>version;        /* Version of VORG table. Set to 0x00010000u. */
-  FWORD         defaultVertOriginY;
-                                /* The default vertical origin. */
+  FixedVersion<>        version;                /* Version of VORG table. Set to 0x00010000u. */
+  FWORD                 defaultVertOriginY;     /* The default vertical origin. */
   SortedArrayOf<VertOriginMetric>
-                vertYOrigins;   /* The array of vertical origins. */
+                        vertYOrigins;           /* The array of vertical origins. */
 
   public:
   DEFINE_SIZE_ARRAY(8, vertYOrigins);
