@@ -33,7 +33,6 @@
 #include "hb-open-file.hh"
 #include "hb-ot-face.hh"
 #include "hb-ot-cmap-table.hh"
-#include "hb-map.hh"
 
 
 /**
@@ -143,7 +142,7 @@ hb_face_create_for_tables (hb_reference_table_func_t  reference_table_func,
 
 typedef struct hb_face_for_data_closure_t {
   hb_blob_t *blob;
-  uint16_t  index;
+  unsigned int  index;
 } hb_face_for_data_closure_t;
 
 static hb_face_for_data_closure_t *
@@ -151,12 +150,12 @@ _hb_face_for_data_closure_create (hb_blob_t *blob, unsigned int index)
 {
   hb_face_for_data_closure_t *closure;
 
-  closure = (hb_face_for_data_closure_t *) hb_calloc (1, sizeof (hb_face_for_data_closure_t));
+  closure = (hb_face_for_data_closure_t *) calloc (1, sizeof (hb_face_for_data_closure_t));
   if (unlikely (!closure))
     return nullptr;
 
   closure->blob = blob;
-  closure->index = (uint16_t) (index & 0xFFFFu);
+  closure->index = index;
 
   return closure;
 }
@@ -167,7 +166,7 @@ _hb_face_for_data_closure_destroy (void *data)
   hb_face_for_data_closure_t *closure = (hb_face_for_data_closure_t *) data;
 
   hb_blob_destroy (closure->blob);
-  hb_free (closure);
+  free (closure);
 }
 
 static hb_blob_t *
@@ -190,24 +189,14 @@ _hb_face_for_data_reference_table (hb_face_t *face HB_UNUSED, hb_tag_t tag, void
 }
 
 /**
- * hb_face_create:
+ * hb_face_create: (Xconstructor)
  * @blob: #hb_blob_t to work upon
  * @index: The index of the face within @blob
  *
  * Constructs a new face object from the specified blob and
- * a face index into that blob.
- *
- * The face index is used for blobs of file formats such as TTC and
- * and DFont that can contain more than one face.  Face indices within
- * such collections are zero-based.
- *
- * <note>Note: If the blob font format is not a collection, @index
- * is ignored.  Otherwise, only the lower 16-bits of @index are used.
- * The unmodified @index can be accessed via hb_face_get_index().</note>
- *
- * <note>Note: The high 16-bits of @index, if non-zero, are used by
- * hb_font_create() to load named-instances in variable fonts.  See
- * hb_font_create() for details.</note>
+ * a face index into that blob. This is used for blobs of
+ * file formats such as Dfont and TTC that can contain more
+ * than one face.
  *
  * Return value: (transfer full): The new face object
  *
@@ -292,7 +281,7 @@ hb_face_destroy (hb_face_t *face)
   {
     hb_face_t::plan_node_t *next = node->next;
     hb_shape_plan_destroy (node->shape_plan);
-    hb_free (node);
+    free (node);
     node = next;
   }
 
@@ -302,7 +291,7 @@ hb_face_destroy (hb_face_t *face)
   if (face->destroy)
     face->destroy (face->user_data);
 
-  hb_free (face);
+  free (face);
 }
 
 /**
@@ -342,7 +331,7 @@ hb_face_set_user_data (hb_face_t          *face,
  * Since: 0.9.2
  **/
 void *
-hb_face_get_user_data (hb_face_t          *face,
+hb_face_get_user_data (const hb_face_t    *face,
                        hb_user_data_key_t *key)
 {
   return hb_object_get_user_data (face, key);
@@ -430,8 +419,7 @@ hb_face_reference_blob (hb_face_t *face)
  * Assigns the specified face-index to @face. Fails if the
  * face is immutable.
  *
- * <note>Note: changing the index has no effect on the face itself
- * This only changes the value returned by hb_face_get_index().</note>
+ * <note>Note: face indices within a collection are zero-based.</note>
  *
  * Since: 0.9.2
  **/
@@ -635,26 +623,26 @@ hb_face_collect_variation_unicodes (hb_face_t *face,
 
 struct hb_face_builder_data_t
 {
-  hb_hashmap_t<hb_tag_t, hb_blob_t *> tables;
+  struct table_entry_t
+  {
+    int cmp (hb_tag_t t) const
+    {
+      if (t < tag) return -1;
+      if (t > tag) return -1;
+      return 0;
+    }
+
+    hb_tag_t   tag;
+    hb_blob_t *blob;
+  };
+
+  hb_vector_t<table_entry_t> tables;
 };
-
-static int compare_entries (const void* pa, const void* pb)
-{
-  const auto& a = * (const hb_pair_t<hb_tag_t, hb_blob_t*> *) pa;
-  const auto& b = * (const hb_pair_t<hb_tag_t, hb_blob_t*> *) pb;
-
-  /* Order by blob size first (smallest to largest) and then table tag */
-
-  if (a.second->length != b.second->length)
-    return a.second->length < b.second->length ? -1 : +1;
-
-  return a.first < b.first ? -1 : a.first == b.first ? 0 : +1;
-}
 
 static hb_face_builder_data_t *
 _hb_face_builder_data_create ()
 {
-  hb_face_builder_data_t *data = (hb_face_builder_data_t *) hb_calloc (1, sizeof (hb_face_builder_data_t));
+  hb_face_builder_data_t *data = (hb_face_builder_data_t *) calloc (1, sizeof (hb_face_builder_data_t));
   if (unlikely (!data))
     return nullptr;
 
@@ -668,25 +656,25 @@ _hb_face_builder_data_destroy (void *user_data)
 {
   hb_face_builder_data_t *data = (hb_face_builder_data_t *) user_data;
 
-  for (hb_blob_t* b : data->tables.values())
-    hb_blob_destroy (b);
+  for (unsigned int i = 0; i < data->tables.length; i++)
+    hb_blob_destroy (data->tables[i].blob);
 
   data->tables.fini ();
 
-  hb_free (data);
+  free (data);
 }
 
 static hb_blob_t *
 _hb_face_builder_data_reference_blob (hb_face_builder_data_t *data)
 {
 
-  unsigned int table_count = data->tables.get_population ();
+  unsigned int table_count = data->tables.length;
   unsigned int face_length = table_count * 16 + 12;
 
-  for (hb_blob_t* b : data->tables.values())
-    face_length += hb_ceil_to_4 (hb_blob_get_length (b));
+  for (unsigned int i = 0; i < table_count; i++)
+    face_length += hb_ceil_to_4 (hb_blob_get_length (data->tables[i].blob));
 
-  char *buf = (char *) hb_malloc (face_length);
+  char *buf = (char *) malloc (face_length);
   if (unlikely (!buf))
     return nullptr;
 
@@ -694,31 +682,20 @@ _hb_face_builder_data_reference_blob (hb_face_builder_data_t *data)
   c.propagate_error (data->tables);
   OT::OpenTypeFontFile *f = c.start_serialize<OT::OpenTypeFontFile> ();
 
-  bool is_cff = (data->tables.has (HB_TAG ('C','F','F',' '))
-                 || data->tables.has (HB_TAG ('C','F','F','2')));
+  bool is_cff = data->tables.lsearch (HB_TAG ('C','F','F',' ')) || data->tables.lsearch (HB_TAG ('C','F','F','2'));
   hb_tag_t sfnt_tag = is_cff ? OT::OpenTypeFontFile::CFFTag : OT::OpenTypeFontFile::TrueTypeTag;
 
-  // Sort the tags so that produced face is deterministic.
-  hb_vector_t<hb_pair_t <hb_tag_t, hb_blob_t*>> sorted_entries;
-  data->tables.iter () | hb_sink (sorted_entries);
-  if (unlikely (sorted_entries.in_error ()))
-  {
-    hb_free (buf);
-    return nullptr;
-  }
-
-  sorted_entries.qsort (compare_entries);
-  bool ret = f->serialize_single (&c, sfnt_tag, + sorted_entries.iter());
+  bool ret = f->serialize_single (&c, sfnt_tag, data->tables.as_array ());
 
   c.end_serialize ();
 
   if (unlikely (!ret))
   {
-    hb_free (buf);
+    free (buf);
     return nullptr;
   }
 
-  return hb_blob_create (buf, face_length, HB_MEMORY_MODE_WRITABLE, buf, hb_free);
+  return hb_blob_create (buf, face_length, HB_MEMORY_MODE_WRITABLE, buf, free);
 }
 
 static hb_blob_t *
@@ -729,7 +706,11 @@ _hb_face_builder_reference_table (hb_face_t *face HB_UNUSED, hb_tag_t tag, void 
   if (!tag)
     return _hb_face_builder_data_reference_blob (data);
 
-  return hb_blob_reference (data->tables[tag]);
+  hb_face_builder_data_t::table_entry_t *entry = data->tables.lsearch (tag);
+  if (entry)
+    return hb_blob_reference (entry->blob);
+
+  return nullptr;
 }
 
 
@@ -769,21 +750,17 @@ hb_face_builder_create ()
 hb_bool_t
 hb_face_builder_add_table (hb_face_t *face, hb_tag_t tag, hb_blob_t *blob)
 {
-  if (tag == HB_MAP_VALUE_INVALID)
-    return false;
-
   if (unlikely (face->destroy != (hb_destroy_func_t) _hb_face_builder_data_destroy))
     return false;
 
   hb_face_builder_data_t *data = (hb_face_builder_data_t *) face->user_data;
 
-  hb_blob_t* previous = data->tables.get (tag);
-  if (!data->tables.set (tag, hb_blob_reference (blob)))
-  {
-    hb_blob_destroy (blob);
+  hb_face_builder_data_t::table_entry_t *entry = data->tables.push ();
+  if (unlikely (data->tables.in_error()))
     return false;
-  }
 
-  hb_blob_destroy (previous);
+  entry->tag = tag;
+  entry->blob = hb_blob_reference (blob);
+
   return true;
 }

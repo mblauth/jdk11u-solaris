@@ -217,6 +217,9 @@ inline unsigned int OpCode_Size (op_code_t op) { return Is_OpCode_ESC (op) ? 2: 
 
 struct number_t
 {
+  void init () { set_real (0.0); }
+  void fini () {}
+
   void set_int (int v)       { value = v; }
   int to_int () const        { return value; }
 
@@ -242,15 +245,12 @@ struct number_t
   }
 
   protected:
-  double value = 0.;
+  double value;
 };
 
 /* byte string */
 struct UnsizedByteStr : UnsizedArrayOf <HBUINT8>
 {
-  hb_ubytes_t as_ubytes (unsigned l) const
-  { return hb_ubytes_t ((const unsigned char *) this, l); }
-
   // encode 2-byte int (Dict/CharString) or 4-byte int (Dict)
   template <typename T, typename V>
   static bool serialize_int (hb_serialize_context_t *c, op_code_t intOp, V value)
@@ -263,7 +263,7 @@ struct UnsizedByteStr : UnsizedArrayOf <HBUINT8>
 
     T *ip = c->allocate_size<T> (T::static_size);
     if (unlikely (!ip)) return_trace (false);
-    return_trace (c->check_assign (*ip, value, HB_SERIALIZE_ERROR_INT_OVERFLOW));
+    return_trace (c->check_assign (*ip, value));
   }
 
   template <typename V>
@@ -277,8 +277,31 @@ struct UnsizedByteStr : UnsizedArrayOf <HBUINT8>
   /* Defining null_size allows a Null object may be created. Should be safe because:
    * A descendent struct Dict uses a Null pointer to indicate a missing table,
    * checked before access.
+   * byte_str_t, a wrapper struct pairing a byte pointer along with its length, always
+   * checks the length before access. A Null pointer is used as the initial pointer
+   * along with zero length by the default ctor.
    */
   DEFINE_SIZE_MIN(0);
+};
+
+/* Holder of a section of byte string within a CFFIndex entry */
+struct byte_str_t : hb_ubytes_t
+{
+  byte_str_t ()
+    : hb_ubytes_t () {}
+  byte_str_t (const UnsizedByteStr& s, unsigned int l)
+    : hb_ubytes_t ((const unsigned char*)&s, l) {}
+  byte_str_t (const unsigned char *s, unsigned int l)
+    : hb_ubytes_t (s, l) {}
+  byte_str_t (const hb_ubytes_t &ub)    /* conversion from hb_ubytes_t */
+    : hb_ubytes_t (ub) {}
+
+  /* sub-string */
+  byte_str_t sub_str (unsigned int offset, unsigned int len_) const
+  { return byte_str_t (hb_ubytes_t::sub_array (offset, len_)); }
+
+  bool check_limit (unsigned int offset, unsigned int count) const
+  { return (offset + count <= length); }
 };
 
 /* A byte string associated with the current offset and an error condition */
@@ -288,17 +311,17 @@ struct byte_str_ref_t
 
   void init ()
   {
-    str = hb_ubytes_t ();
+    str = byte_str_t ();
     offset = 0;
     error = false;
   }
 
   void fini () {}
 
-  byte_str_ref_t (const hb_ubytes_t &str_, unsigned int offset_ = 0)
+  byte_str_ref_t (const byte_str_t &str_, unsigned int offset_ = 0)
     : str (str_), offset (offset_), error (false) {}
 
-  void reset (const hb_ubytes_t &str_, unsigned int offset_ = 0)
+  void reset (const byte_str_t &str_, unsigned int offset_ = 0)
   {
     str = str_;
     offset = offset_;
@@ -314,14 +337,14 @@ struct byte_str_ref_t
     return str[offset + i];
   }
 
-  /* Conversion to hb_ubytes_t */
-  operator hb_ubytes_t () const { return str.sub_array (offset, str.length - offset); }
+  /* Conversion to byte_str_t */
+  operator byte_str_t () const { return str.sub_str (offset, str.length - offset); }
 
-  hb_ubytes_t sub_array (unsigned int offset_, unsigned int len_) const
-  { return str.sub_array (offset_, len_); }
+  byte_str_t sub_str (unsigned int offset_, unsigned int len_) const
+  { return str.sub_str (offset_, len_); }
 
   bool avail (unsigned int count=1) const
-  { return (!in_error () && offset + count <= str.length); }
+  { return (!in_error () && str.check_limit (offset, count)); }
   void inc (unsigned int count=1)
   {
     if (likely (!in_error () && (offset <= str.length) && (offset + count <= str.length)))
@@ -338,39 +361,46 @@ struct byte_str_ref_t
   void set_error ()      { error = true; }
   bool in_error () const { return error; }
 
-  hb_ubytes_t       str;
+  byte_str_t       str;
   unsigned int  offset; /* beginning of the sub-string within str */
 
   protected:
   bool    error;
 };
 
-using byte_str_array_t = hb_vector_t<hb_ubytes_t>;
+typedef hb_vector_t<byte_str_t> byte_str_array_t;
 
 /* stack */
 template <typename ELEM, int LIMIT>
 struct cff_stack_t
 {
+  void init ()
+  {
+    error = false;
+    count = 0;
+    elements.init ();
+    elements.resize (kSizeLimit);
+    for (unsigned int i = 0; i < elements.length; i++)
+      elements[i].init ();
+  }
+  void fini () { elements.fini_deep (); }
+
   ELEM& operator [] (unsigned int i)
   {
-    if (unlikely (i >= count))
-    {
-      set_error ();
-      return Crap (ELEM);
-    }
+    if (unlikely (i >= count)) set_error ();
     return elements[i];
   }
 
   void push (const ELEM &v)
   {
-    if (likely (count < LIMIT))
+    if (likely (count < elements.length))
       elements[count++] = v;
     else
       set_error ();
   }
   ELEM &push ()
   {
-    if (likely (count < LIMIT))
+    if (likely (count < elements.length))
       return elements[count++];
     else
     {
@@ -399,7 +429,7 @@ struct cff_stack_t
 
   const ELEM& peek ()
   {
-    if (unlikely (count == 0))
+    if (unlikely (count < 0))
     {
       set_error ();
       return Null (ELEM);
@@ -409,7 +439,7 @@ struct cff_stack_t
 
   void unpop ()
   {
-    if (likely (count < LIMIT))
+    if (likely (count < elements.length))
       count++;
     else
       set_error ();
@@ -417,19 +447,18 @@ struct cff_stack_t
 
   void clear () { count = 0; }
 
-  bool in_error () const { return (error); }
+  bool in_error () const { return (error || elements.in_error ()); }
   void set_error ()      { error = true; }
 
   unsigned int get_count () const { return count; }
   bool is_empty () const          { return !count; }
 
-  hb_array_t<const ELEM> sub_array (unsigned start, unsigned length) const
-  { return hb_array_t<const ELEM> (elements).sub_array (start, length); }
+  static constexpr unsigned kSizeLimit = LIMIT;
 
-  private:
-  bool error = false;
-  unsigned int count = 0;
-  ELEM elements[LIMIT];
+  protected:
+  bool error;
+  unsigned int count;
+  hb_vector_t<ELEM> elements;
 };
 
 /* argument stack */
@@ -484,6 +513,9 @@ struct arg_stack_t : cff_stack_t<ARG, 513>
     return true;
   }
 
+  hb_array_t<const ARG> get_subarray (unsigned int start) const
+  { return S::elements.sub_array (start); }
+
   private:
   typedef cff_stack_t<ARG, 513> S;
 };
@@ -491,8 +523,11 @@ struct arg_stack_t : cff_stack_t<ARG, 513>
 /* an operator prefixed by its operands in a byte string */
 struct op_str_t
 {
-  hb_ubytes_t str;
+  void init () {}
+  void fini () {}
+
   op_code_t  op;
+  byte_str_t str;
 };
 
 /* base of OP_SERIALIZER */
@@ -518,18 +553,13 @@ struct parsed_values_t
     opStart = 0;
     values.init ();
   }
-  void fini () { values.fini (); }
-
-  void alloc (unsigned n)
-  {
-    values.alloc (n);
-  }
+  void fini () { values.fini_deep (); }
 
   void add_op (op_code_t op, const byte_str_ref_t& str_ref = byte_str_ref_t ())
   {
     VAL *val = values.push ();
     val->op = op;
-    val->str = str_ref.str.sub_array (opStart, str_ref.offset - opStart);
+    val->str = str_ref.str.sub_str (opStart, str_ref.offset - opStart);
     opStart = str_ref.offset;
   }
 
@@ -537,14 +567,14 @@ struct parsed_values_t
   {
     VAL *val = values.push (v);
     val->op = op;
-    val->str = str_ref.sub_array ( opStart, str_ref.offset - opStart);
+    val->str = str_ref.sub_str ( opStart, str_ref.offset - opStart);
     opStart = str_ref.offset;
   }
 
   bool has_op (op_code_t op) const
   {
-    for (const auto& v : values)
-      if (v.op == op) return true;
+    for (unsigned int i = 0; i < get_count (); i++)
+      if (get_value (i).op == op) return true;
     return false;
   }
 
@@ -559,11 +589,14 @@ struct parsed_values_t
 template <typename ARG=number_t>
 struct interp_env_t
 {
-  interp_env_t () {}
-  interp_env_t (const hb_ubytes_t &str_)
+  void init (const byte_str_t &str_)
   {
     str_ref.reset (str_);
+    argStack.init ();
+    error = false;
   }
+  void fini () { argStack.fini (); }
+
   bool in_error () const
   { return error || str_ref.in_error () || argStack.in_error (); }
 
@@ -597,10 +630,10 @@ struct interp_env_t
   arg_stack_t<ARG>
                 argStack;
   protected:
-  bool          error = false;
+  bool          error;
 };
 
-using num_interp_env_t =  interp_env_t<>;
+typedef interp_env_t<> num_interp_env_t;
 
 template <typename ARG=number_t>
 struct opset_t
@@ -643,8 +676,11 @@ struct opset_t
 template <typename ENV>
 struct interpreter_t
 {
-  interpreter_t (ENV& env_) : env (env_) {}
-  ENV& env;
+  ~interpreter_t() { fini (); }
+
+  void fini () { env.fini (); }
+
+  ENV env;
 };
 
 } /* namespace CFF */
