@@ -48,7 +48,7 @@ namespace OT {
  */
 
 struct OpenTypeFontFile;
-struct OpenTypeOffsetTable;
+struct OffsetTable;
 struct TTCHeader;
 
 
@@ -56,7 +56,7 @@ typedef struct TableRecord
 {
   int cmp (Tag t) const { return -t.cmp (tag); }
 
-  HB_INTERNAL static int cmp (const void *pa, const void *pb)
+  static int cmp (const void *pa, const void *pb)
   {
     const TableRecord *a = (const TableRecord *) pa;
     const TableRecord *b = (const TableRecord *) pb;
@@ -78,7 +78,7 @@ typedef struct TableRecord
   DEFINE_SIZE_STATIC (16);
 } OpenTypeTable;
 
-typedef struct OpenTypeOffsetTable
+typedef struct OffsetTable
 {
   friend struct OpenTypeFontFile;
 
@@ -86,22 +86,27 @@ typedef struct OpenTypeOffsetTable
   const TableRecord& get_table (unsigned int i) const
   { return tables[i]; }
   unsigned int get_table_tags (unsigned int  start_offset,
-                               unsigned int *table_count, /* IN/OUT */
-                               hb_tag_t     *table_tags /* OUT */) const
+                                      unsigned int *table_count, /* IN/OUT */
+                                      hb_tag_t     *table_tags /* OUT */) const
   {
     if (table_count)
     {
-      + tables.sub_array (start_offset, table_count)
-      | hb_map (&TableRecord::tag)
-      | hb_sink (hb_array (table_tags, *table_count))
-      ;
+      if (start_offset >= tables.len)
+        *table_count = 0;
+      else
+        *table_count = MIN<unsigned int> (*table_count, tables.len - start_offset);
+
+      const TableRecord *sub_tables = tables.arrayZ + start_offset;
+      unsigned int count = *table_count;
+      for (unsigned int i = 0; i < count; i++)
+        table_tags[i] = sub_tables[i].tag;
     }
     return tables.len;
   }
   bool find_table_index (hb_tag_t tag, unsigned int *table_index) const
   {
     Tag t;
-    t = tag;
+    t.set (tag);
     return tables.bfind (t, table_index, HB_BFIND_NOT_FOUND_STORE, Index::NOT_FOUND_INDEX);
   }
   const TableRecord& get_table_by_tag (hb_tag_t tag) const
@@ -122,7 +127,7 @@ typedef struct OpenTypeOffsetTable
     /* Alloc 12 for the OTHeader. */
     if (unlikely (!c->extend_min (*this))) return_trace (false);
     /* Write sfntVersion (bytes 0..3). */
-    sfnt_version = sfnt_tag;
+    sfnt_version.set (sfnt_tag);
     /* Take space for numTables, searchRange, entrySelector, RangeShift
      * and the TableRecords themselves.  */
     if (unlikely (!tables.serialize (c, items.length))) return_trace (false);
@@ -135,16 +140,15 @@ typedef struct OpenTypeOffsetTable
     {
       TableRecord &rec = tables.arrayZ[i];
       hb_blob_t *blob = items[i].blob;
-      rec.tag = items[i].tag;
-      rec.length = blob->length;
+      rec.tag.set (items[i].tag);
+      rec.length.set (hb_blob_get_length (blob));
       rec.offset.serialize (c, this);
 
       /* Allocate room for the table and copy it. */
       char *start = (char *) c->allocate_size<void> (rec.length);
-      if (unlikely (!start)) return false;
+      if (unlikely (!start)) {return false;}
 
-      if (likely (rec.length))
-        memcpy (start, blob->data, rec.length);
+      memcpy (start, hb_blob_get_data (blob, nullptr), rec.length);
 
       /* 4-byte alignment. */
       c->align (4);
@@ -155,7 +159,7 @@ typedef struct OpenTypeOffsetTable
       {
         head *h = (head *) start;
         checksum_adjustment = &h->checkSumAdjustment;
-        *checksum_adjustment = 0;
+        checksum_adjustment->set (0);
       }
 
       rec.checkSum.set_for_data (start, end - start);
@@ -173,10 +177,10 @@ typedef struct OpenTypeOffsetTable
       for (unsigned int i = 0; i < items.length; i++)
       {
         TableRecord &rec = tables.arrayZ[i];
-        checksum = checksum + rec.checkSum;
+        checksum.set (checksum + rec.checkSum);
       }
 
-      *checksum_adjustment = 0xB1B0AFBAu - checksum;
+      checksum_adjustment->set (0xB1B0AFBAu - checksum);
     }
 
     return_trace (true);
@@ -218,7 +222,7 @@ struct TTCHeaderVersion1
   Tag           ttcTag;         /* TrueType Collection ID string: 'ttcf' */
   FixedVersion<>version;        /* Version of the TTC Header (1.0),
                                  * 0x00010000u */
-  LArrayOf<LOffsetTo<OpenTypeOffsetTable>>
+  LArrayOf<LOffsetTo<OffsetTable> >
                 table;          /* Array of offsets to the OffsetTable for each font
                                  * from the beginning of the file */
   public:
@@ -244,7 +248,7 @@ struct TTCHeader
     switch (u.header.version.major) {
     case 2: /* version 2 is compatible with version 1 */
     case 1: return u.version1.get_face (i);
-    default:return Null (OpenTypeFontFace);
+    default:return Null(OpenTypeFontFace);
     }
   }
 
@@ -279,10 +283,10 @@ struct TTCHeader
 struct ResourceRecord
 {
   const OpenTypeFontFace & get_face (const void *data_base) const
-  { return * reinterpret_cast<const OpenTypeFontFace *> ((data_base+offset).arrayZ); }
+  { return CastR<OpenTypeFontFace> ((data_base+offset).arrayZ); }
 
   bool sanitize (hb_sanitize_context_t *c,
-                 const void *data_base) const
+                        const void *data_base) const
   {
     TRACE_SANITIZE (this);
     return_trace (c->check_struct (this) &&
@@ -330,7 +334,7 @@ struct ResourceTypeRecord
   protected:
   Tag           tag;            /* Resource type. */
   HBUINT16      resCountM1;     /* Number of resources minus 1. */
-  NNOffsetTo<UnsizedArrayOf<ResourceRecord>>
+  NNOffsetTo<UnsizedArrayOf<ResourceRecord> >
                 resourcesZ;     /* Offset from beginning of resource type list
                                  * to reference item list for this type. */
   public:
@@ -386,7 +390,7 @@ struct ResourceMap
   HBUINT32      reserved1;      /* Reserved for handle to next resource map */
   HBUINT16      resreved2;      /* Reserved for file reference number */
   HBUINT16      attrs;          /* Resource fork attribute */
-  NNOffsetTo<ArrayOfM1<ResourceTypeRecord>>
+  NNOffsetTo<ArrayOfM1<ResourceTypeRecord> >
                 typeList;       /* Offset from beginning of map to
                                  * resource type list */
   Offset16      nameList;       /* Offset from beginning of map to
@@ -418,7 +422,7 @@ struct ResourceForkHeader
   }
 
   protected:
-  LNNOffsetTo<UnsizedArrayOf<HBUINT8>>
+  LNNOffsetTo<UnsizedArrayOf<HBUINT8> >
                 data;           /* Offset from beginning of resource fork
                                  * to resource data */
   LNNOffsetTo<ResourceMap >
@@ -473,7 +477,7 @@ struct OpenTypeFontFile
     case TrueTypeTag:   return u.fontFace;
     case TTCTag:        return u.ttcHeader.get_face (i);
     case DFontTag:      return u.rfHeader.get_face (i, base_offset);
-    default:            return Null (OpenTypeFontFace);
+    default:            return Null(OpenTypeFontFace);
     }
   }
 
