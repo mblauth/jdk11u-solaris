@@ -24,7 +24,7 @@
  * Google Author(s): Behdad Esfahbod
  */
 
-#if !defined(HB_H_IN) && !defined(HB_NO_SINGLE_HEADER_ERROR)
+#ifndef HB_H_IN
 #error "Include <hb.h> instead."
 #endif
 
@@ -36,21 +36,11 @@
 HB_BEGIN_DECLS
 
 
-/**
- * HB_MAP_VALUE_INVALID:
- *
- * Unset #hb_map_t value.
- *
+/*
  * Since: 1.7.7
  */
 #define HB_MAP_VALUE_INVALID ((hb_codepoint_t) -1)
 
-/**
- * hb_map_t:
- *
- * Data type for holding integer-to-integer hash maps.
- *
- **/
 typedef struct hb_map_t hb_map_t;
 
 
