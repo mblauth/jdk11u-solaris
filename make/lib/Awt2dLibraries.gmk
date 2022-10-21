@@ -544,8 +544,15 @@ else
   LIBFONTMANAGER_EXTRA_SRC = libharfbuzz
   HARFBUZZ_CFLAGS := -DHAVE_OT -DHAVE_FALLBACK -DHAVE_UCDN -DHAVE_ROUND
   # Modern HarfBuzz requires c++11; but VS does not have the flag
+<<<<<<< HEAD
   ifeq ($(call isTargetOs, windows), false)
     HARFBUZZ_CXXFLAGS := -std=c++11
+=======
+  ifneq ($(OPENJDK_TARGET_OS), windows)
+    ifneq ($(OPENJDK_TARGET_OS), solaris)
+      HARFBUZZ_CXXFLAGS := -std=c++11
+    endif
+>>>>>>> Solaris Studio 12u4 can't handle compiling Harfbuzz with -std=c++11
     HARFBUZZ_CFLAGS += -DGETPAGESIZE -DHAVE_MPROTECT -DHAVE_PTHREAD \
                        -DHAVE_SYSCONF -DHAVE_SYS_MMAN_H -DHAVE_UNISTD_H \
                        -DHB_NO_PRAGMA_GCC_DIAGNOSTIC
