@@ -38,12 +38,13 @@
 
 using namespace CFF;
 
-
-/* Determine an optimal FDSelect format according to a provided plan.
+/**
+ * hb_plan_subset_cff_fdselect
+ * Determine an optimal FDSelect format according to a provided plan.
  *
  * Return value: FDSelect format, size, and ranges for the most compact subset FDSelect
  * along with a font index remapping table
- */
+ **/
 
 bool
 hb_plan_subset_cff_fdselect (const hb_subset_plan_t *plan,
@@ -168,7 +169,10 @@ serialize_fdselect_3_4 (hb_serialize_context_t *c,
   return_trace (true);
 }
 
-/* Serialize a subset FDSelect format planned above. */
+/**
+ * hb_serialize_cff_fdselect
+ * Serialize a subset FDSelect format planned above.
+ **/
 bool
 hb_serialize_cff_fdselect (hb_serialize_context_t *c,
                            const unsigned int num_glyphs,

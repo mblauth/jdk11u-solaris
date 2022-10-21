@@ -108,17 +108,13 @@ hb_ot_layout_delete_glyphs_inplace (hb_buffer_t *buffer,
 
 namespace OT {
   struct hb_ot_apply_context_t;
-  struct hb_ot_layout_lookup_accelerator_t;
-namespace Layout {
-namespace GSUB {
   struct SubstLookup;
-}
-}
+  struct hb_ot_layout_lookup_accelerator_t;
 }
 
 HB_INTERNAL void
 hb_ot_layout_substitute_lookup (OT::hb_ot_apply_context_t *c,
-                                const OT::Layout::GSUB::SubstLookup &lookup,
+                                const OT::SubstLookup &lookup,
                                 const OT::hb_ot_layout_lookup_accelerator_t &accel);
 
 
@@ -172,6 +168,17 @@ _hb_next_syllable (hb_buffer_t *buffer, unsigned int start)
   return start;
 }
 
+static inline void
+_hb_clear_syllables (const hb_ot_shape_plan_t *plan HB_UNUSED,
+                     hb_font_t *font HB_UNUSED,
+                     hb_buffer_t *buffer)
+{
+  hb_glyph_info_t *info = buffer->info;
+  unsigned int count = buffer->len;
+  for (unsigned int i = 0; i < count; i++)
+    info[i].syllable() = 0;
+}
+
 
 /* unicode_props */
 
@@ -180,7 +187,7 @@ _hb_next_syllable (hb_buffer_t *buffer, unsigned int start)
  * - General_Category: 5 bits.
  * - A bit each for:
  *   * Is it Default_Ignorable(); we have a modified Default_Ignorable().
- *   * Whether it's one of the four Mongolian Free Variation Selectors,
+ *   * Whether it's one of the three Mongolian Free Variation Selectors,
  *     CGJ, or other characters that are hidden but should not be ignored
  *     like most other Default_Ignorable()s do during matching.
  *   * Whether it's a grapheme continuation.
@@ -195,7 +202,7 @@ _hb_next_syllable (hb_buffer_t *buffer, unsigned int start)
 enum hb_unicode_props_flags_t {
   UPROPS_MASK_GEN_CAT   = 0x001Fu,
   UPROPS_MASK_IGNORABLE = 0x0020u,
-  UPROPS_MASK_HIDDEN    = 0x0040u, /* MONGOLIAN FREE VARIATION SELECTOR 1..4, or TAG characters */
+  UPROPS_MASK_HIDDEN    = 0x0040u, /* MONGOLIAN FREE VARIATION SELECTOR 1..3, or TAG characters */
   UPROPS_MASK_CONTINUATION=0x0080u,
 
   /* If GEN_CAT=FORMAT, top byte masks: */
@@ -229,7 +236,7 @@ _hb_glyph_info_set_unicode_props (hb_glyph_info_t *info, hb_buffer_t *buffer)
        * FVSes are GC=Mn, we have use a separate bit to remember them.
        * Fixes:
        * https://github.com/harfbuzz/harfbuzz/issues/234 */
-      else if (unlikely (hb_in_ranges<hb_codepoint_t> (u, 0x180Bu, 0x180Du, 0x180Fu, 0x180Fu))) props |= UPROPS_MASK_HIDDEN;
+      else if (unlikely (hb_in_range<hb_codepoint_t> (u, 0x180Bu, 0x180Du))) props |= UPROPS_MASK_HIDDEN;
       /* TAG characters need similar treatment. Fixes:
        * https://github.com/harfbuzz/harfbuzz/issues/463 */
       else if (unlikely (hb_in_range<hb_codepoint_t> (u, 0xE0020u, 0xE007Fu))) props |= UPROPS_MASK_HIDDEN;
@@ -307,6 +314,7 @@ _hb_glyph_info_get_unicode_space_fallback_type (const hb_glyph_info_t *info)
          hb_unicode_funcs_t::NOT_SPACE;
 }
 
+static inline bool _hb_glyph_info_ligated (const hb_glyph_info_t *info);
 static inline bool _hb_glyph_info_substituted (const hb_glyph_info_t *info);
 
 static inline bool
@@ -320,7 +328,7 @@ _hb_glyph_info_is_default_ignorable_and_not_hidden (const hb_glyph_info_t *info)
 {
   return ((info->unicode_props() & (UPROPS_MASK_IGNORABLE|UPROPS_MASK_HIDDEN))
           == UPROPS_MASK_IGNORABLE) &&
-         !_hb_glyph_info_substituted (info);
+         !_hb_glyph_info_ligated (info);
 }
 static inline void
 _hb_glyph_info_unhide (hb_glyph_info_t *info)
@@ -343,20 +351,24 @@ _hb_glyph_info_is_continuation (const hb_glyph_info_t *info)
 {
   return info->unicode_props() & UPROPS_MASK_CONTINUATION;
 }
-
-static inline bool
-_hb_grapheme_group_func (const hb_glyph_info_t& a HB_UNUSED,
-                         const hb_glyph_info_t& b)
-{ return _hb_glyph_info_is_continuation (&b); }
-
+/* Loop over grapheme. Based on foreach_cluster(). */
 #define foreach_grapheme(buffer, start, end) \
-        foreach_group (buffer, start, end, _hb_grapheme_group_func)
+  for (unsigned int \
+       _count = buffer->len, \
+       start = 0, end = _count ? _hb_next_grapheme (buffer, 0) : 0; \
+       start < _count; \
+       start = end, end = _hb_next_grapheme (buffer, start))
 
-static inline void
-_hb_ot_layout_reverse_graphemes (hb_buffer_t *buffer)
+static inline unsigned int
+_hb_next_grapheme (hb_buffer_t *buffer, unsigned int start)
 {
-  buffer->reverse_groups (_hb_grapheme_group_func,
-                          buffer->cluster_level == HB_BUFFER_CLUSTER_LEVEL_MONOTONE_CHARACTERS);
+  hb_glyph_info_t *info = buffer->info;
+  unsigned int count = buffer->len;
+
+  while (++start < count && _hb_glyph_info_is_continuation (&info[start]))
+    ;
+
+  return start;
 }
 
 static inline bool
@@ -475,8 +487,7 @@ _hb_glyph_info_get_lig_num_comps (const hb_glyph_info_t *info)
 }
 
 static inline uint8_t
-_hb_allocate_lig_id (hb_buffer_t *buffer)
-{
+_hb_allocate_lig_id (hb_buffer_t *buffer) {
   uint8_t lig_id = buffer->next_serial () & 0x07;
   if (unlikely (!lig_id))
     lig_id = _hb_allocate_lig_id (buffer); /* in case of overflow */
@@ -589,11 +600,13 @@ _hb_buffer_allocate_gsubgpos_vars (hb_buffer_t *buffer)
 {
   HB_BUFFER_ALLOCATE_VAR (buffer, glyph_props);
   HB_BUFFER_ALLOCATE_VAR (buffer, lig_props);
+  HB_BUFFER_ALLOCATE_VAR (buffer, syllable);
 }
 
 static inline void
 _hb_buffer_deallocate_gsubgpos_vars (hb_buffer_t *buffer)
 {
+  HB_BUFFER_DEALLOCATE_VAR (buffer, syllable);
   HB_BUFFER_DEALLOCATE_VAR (buffer, lig_props);
   HB_BUFFER_DEALLOCATE_VAR (buffer, glyph_props);
 }
@@ -603,6 +616,7 @@ _hb_buffer_assert_gsubgpos_vars (hb_buffer_t *buffer)
 {
   HB_BUFFER_ASSERT_VAR (buffer, glyph_props);
   HB_BUFFER_ASSERT_VAR (buffer, lig_props);
+  HB_BUFFER_ASSERT_VAR (buffer, syllable);
 }
 
 /* Make sure no one directly touches our props... */

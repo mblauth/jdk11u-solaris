@@ -66,7 +66,7 @@ hb_shape_plan_key_t::init (bool                           copy,
                            const char * const            *shaper_list)
 {
   hb_feature_t *features = nullptr;
-  if (copy && num_user_features && !(features = (hb_feature_t *) hb_calloc (num_user_features, sizeof (hb_feature_t))))
+  if (copy && num_user_features && !(features = (hb_feature_t *) calloc (num_user_features, sizeof (hb_feature_t))))
     goto bail;
 
   this->props = *props;
@@ -130,7 +130,7 @@ hb_shape_plan_key_t::init (bool                           copy,
 #undef HB_SHAPER_PLAN
 
 bail:
-  ::hb_free (features);
+  ::free (features);
   return false;
 }
 
@@ -170,7 +170,7 @@ hb_shape_plan_key_t::equal (const hb_shape_plan_key_t *other)
 
 
 /**
- * hb_shape_plan_create:
+ * hb_shape_plan_create: (Xconstructor)
  * @face: #hb_face_t to use
  * @props: The #hb_segment_properties_t of the segment
  * @user_features: (array length=num_user_features): The list of user-selected features
@@ -198,7 +198,7 @@ hb_shape_plan_create (hb_face_t                     *face,
 }
 
 /**
- * hb_shape_plan_create2:
+ * hb_shape_plan_create2: (Xconstructor)
  * @face: #hb_face_t to use
  * @props: The #hb_segment_properties_t of the segment
  * @user_features: (array length=num_user_features): The list of user-selected features
@@ -231,8 +231,7 @@ hb_shape_plan_create2 (hb_face_t                     *face,
                   num_coords,
                   shaper_list);
 
-  if (unlikely (props->direction == HB_DIRECTION_INVALID))
-    return hb_shape_plan_get_empty ();
+  assert (props->direction != HB_DIRECTION_INVALID);
 
   hb_shape_plan_t *shape_plan;
 
@@ -265,9 +264,9 @@ hb_shape_plan_create2 (hb_face_t                     *face,
 #ifndef HB_NO_OT_SHAPE
 bail3:
 #endif
-  shape_plan->key.fini ();
+  shape_plan->key.free ();
 bail2:
-  hb_free (shape_plan);
+  free (shape_plan);
 bail:
   return hb_shape_plan_get_empty ();
 }
@@ -321,8 +320,8 @@ hb_shape_plan_destroy (hb_shape_plan_t *shape_plan)
 #ifndef HB_NO_OT_SHAPE
   shape_plan->ot.fini ();
 #endif
-  shape_plan->key.fini ();
-  hb_free (shape_plan);
+  shape_plan->key.free ();
+  free (shape_plan);
 }
 
 /**
@@ -405,7 +404,7 @@ _hb_shape_plan_execute_internal (hb_shape_plan_t    *shape_plan,
 
   buffer->assert_unicode ();
 
-  if (unlikely (!hb_object_is_valid (shape_plan)))
+  if (unlikely (hb_object_is_inert (shape_plan)))
     return false;
 
   assert (shape_plan->face_unsafe == font->face);
@@ -530,7 +529,7 @@ hb_shape_plan_create_cached2 (hb_face_t                     *face,
 retry:
   hb_face_t::plan_node_t *cached_plan_nodes = face->shape_plans;
 
-  bool dont_cache = !hb_object_is_valid (face);
+  bool dont_cache = hb_object_is_inert (face);
 
   if (likely (!dont_cache))
   {
@@ -561,7 +560,7 @@ retry:
   if (unlikely (dont_cache))
     return shape_plan;
 
-  hb_face_t::plan_node_t *node = (hb_face_t::plan_node_t *) hb_calloc (1, sizeof (hb_face_t::plan_node_t));
+  hb_face_t::plan_node_t *node = (hb_face_t::plan_node_t *) calloc (1, sizeof (hb_face_t::plan_node_t));
   if (unlikely (!node))
     return shape_plan;
 
@@ -571,7 +570,7 @@ retry:
   if (unlikely (!face->shape_plans.cmpexch (cached_plan_nodes, node)))
   {
     hb_shape_plan_destroy (shape_plan);
-    hb_free (node);
+    free (node);
     goto retry;
   }
   DEBUG_MSG_FUNC (SHAPE_PLAN, shape_plan, "inserted into cache");
