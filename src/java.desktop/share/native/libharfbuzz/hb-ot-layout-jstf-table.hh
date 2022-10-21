@@ -45,7 +45,7 @@ typedef IndexArray JstfModList;
  * JstfMax -- Justification Maximum Table
  */
 
-typedef List16OfOffset16To<PosLookup> JstfMax;
+typedef OffsetListOf<PosLookup> JstfMax;
 
 
 /*
@@ -71,43 +71,43 @@ struct JstfPriority
   }
 
   protected:
-  Offset16To<JstfModList>
+  OffsetTo<JstfModList>
                 shrinkageEnableGSUB;    /* Offset to Shrinkage Enable GSUB
                                          * JstfModList table--from beginning of
                                          * JstfPriority table--may be NULL */
-  Offset16To<JstfModList>
+  OffsetTo<JstfModList>
                 shrinkageDisableGSUB;   /* Offset to Shrinkage Disable GSUB
                                          * JstfModList table--from beginning of
                                          * JstfPriority table--may be NULL */
-  Offset16To<JstfModList>
+  OffsetTo<JstfModList>
                 shrinkageEnableGPOS;    /* Offset to Shrinkage Enable GPOS
                                          * JstfModList table--from beginning of
                                          * JstfPriority table--may be NULL */
-  Offset16To<JstfModList>
+  OffsetTo<JstfModList>
                 shrinkageDisableGPOS;   /* Offset to Shrinkage Disable GPOS
                                          * JstfModList table--from beginning of
                                          * JstfPriority table--may be NULL */
-  Offset16To<JstfMax>
+  OffsetTo<JstfMax>
                 shrinkageJstfMax;       /* Offset to Shrinkage JstfMax table--
                                          * from beginning of JstfPriority table
                                          * --may be NULL */
-  Offset16To<JstfModList>
+  OffsetTo<JstfModList>
                 extensionEnableGSUB;    /* Offset to Extension Enable GSUB
                                          * JstfModList table--from beginning of
                                          * JstfPriority table--may be NULL */
-  Offset16To<JstfModList>
+  OffsetTo<JstfModList>
                 extensionDisableGSUB;   /* Offset to Extension Disable GSUB
                                          * JstfModList table--from beginning of
                                          * JstfPriority table--may be NULL */
-  Offset16To<JstfModList>
+  OffsetTo<JstfModList>
                 extensionEnableGPOS;    /* Offset to Extension Enable GPOS
                                          * JstfModList table--from beginning of
                                          * JstfPriority table--may be NULL */
-  Offset16To<JstfModList>
+  OffsetTo<JstfModList>
                 extensionDisableGPOS;   /* Offset to Extension Disable GPOS
                                          * JstfModList table--from beginning of
                                          * JstfPriority table--may be NULL */
-  Offset16To<JstfMax>
+  OffsetTo<JstfMax>
                 extensionJstfMax;       /* Offset to Extension JstfMax table--
                                          * from beginning of JstfPriority table
                                          * --may be NULL */
@@ -121,13 +121,13 @@ struct JstfPriority
  * JstfLangSys -- Justification Language System Table
  */
 
-struct JstfLangSys : List16OfOffset16To<JstfPriority>
+struct JstfLangSys : OffsetListOf<JstfPriority>
 {
   bool sanitize (hb_sanitize_context_t *c,
                  const Record_sanitize_closure_t * = nullptr) const
   {
     TRACE_SANITIZE (this);
-    return_trace (List16OfOffset16To<JstfPriority>::sanitize (c));
+    return_trace (OffsetListOf<JstfPriority>::sanitize (c));
   }
 };
 
@@ -136,7 +136,7 @@ struct JstfLangSys : List16OfOffset16To<JstfPriority>
  * ExtenderGlyphs -- Extender Glyph Table
  */
 
-typedef SortedArray16Of<HBGlyphID16> ExtenderGlyphs;
+typedef SortedArrayOf<HBGlyphID> ExtenderGlyphs;
 
 
 /*
@@ -174,10 +174,10 @@ struct JstfScript
   }
 
   protected:
-  Offset16To<ExtenderGlyphs>
+  OffsetTo<ExtenderGlyphs>
                 extenderGlyphs; /* Offset to ExtenderGlyph table--from beginning
                                  * of JstfScript table-may be NULL */
-  Offset16To<JstfLangSys>
+  OffsetTo<JstfLangSys>
                 defaultLangSys; /* Offset to DefaultJstfLangSys table--from
                                  * beginning of JstfScript table--may be Null */
   RecordArrayOf<JstfLangSys>

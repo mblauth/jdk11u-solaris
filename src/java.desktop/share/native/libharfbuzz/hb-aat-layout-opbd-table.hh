@@ -58,7 +58,7 @@ struct opbdFormat0
   bool get_bounds (hb_font_t *font, hb_codepoint_t glyph_id,
                    hb_glyph_extents_t *extents, const void *base) const
   {
-    const Offset16To<OpticalBounds> *bounds_offset = lookupTable.get_value (glyph_id, font->face->get_num_glyphs ());
+    const OffsetTo<OpticalBounds> *bounds_offset = lookupTable.get_value (glyph_id, font->face->get_num_glyphs ());
     if (!bounds_offset) return false;
     const OpticalBounds &bounds = base+*bounds_offset;
 
@@ -79,7 +79,7 @@ struct opbdFormat0
   }
 
   protected:
-  Lookup<Offset16To<OpticalBounds>>
+  Lookup<OffsetTo<OpticalBounds>>
                 lookupTable;    /* Lookup table associating glyphs with the four
                                  * int16 values for the left-side, top-side,
                                  * right-side, and bottom-side optical bounds. */
@@ -92,7 +92,7 @@ struct opbdFormat1
   bool get_bounds (hb_font_t *font, hb_codepoint_t glyph_id,
                    hb_glyph_extents_t *extents, const void *base) const
   {
-    const Offset16To<OpticalBounds> *bounds_offset = lookupTable.get_value (glyph_id, font->face->get_num_glyphs ());
+    const OffsetTo<OpticalBounds> *bounds_offset = lookupTable.get_value (glyph_id, font->face->get_num_glyphs ());
     if (!bounds_offset) return false;
     const OpticalBounds &bounds = base+*bounds_offset;
 
@@ -116,7 +116,7 @@ struct opbdFormat1
   }
 
   protected:
-  Lookup<Offset16To<OpticalBounds>>
+  Lookup<OffsetTo<OpticalBounds>>
                 lookupTable;    /* Lookup table associating glyphs with the four
                                  * int16 values for the left-side, top-side,
                                  * right-side, and bottom-side optical bounds. */

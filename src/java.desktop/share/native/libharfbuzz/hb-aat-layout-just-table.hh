@@ -79,7 +79,7 @@ struct DecompositionAction
                                  * to decompose before more frequent ones. The ligatures
                                  * on the line of text will decompose in increasing
                                  * value of this field. */
-  Array16Of<HBUINT16>
+  ArrayOf<HBUINT16>
                 decomposedglyphs;
                                 /* Number of 16-bit glyph indexes that follow;
                                  * the ligature will be decomposed into these glyphs.
@@ -100,7 +100,7 @@ struct UnconditionalAddGlyphAction
   protected:
   ActionSubrecordHeader
                 header;
-  HBGlyphID16   addGlyph;       /* Glyph that should be added if the distance factor
+  HBGlyphID     addGlyph;       /* Glyph that should be added if the distance factor
                                  * is growing. */
 
   public:
@@ -121,11 +121,11 @@ struct ConditionalAddGlyphAction
   HBFixed       substThreshold; /* Distance growth factor (in ems) at which
                                  * this glyph is replaced and the growth factor
                                  * recalculated. */
-  HBGlyphID16   addGlyph;       /* Glyph to be added as kashida. If this value is
+  HBGlyphID     addGlyph;       /* Glyph to be added as kashida. If this value is
                                  * 0xFFFF, no extra glyph will be added. Note that
                                  * generally when a glyph is added, justification
                                  * will need to be redone. */
-  HBGlyphID16   substGlyph;     /* Glyph to be substituted for this glyph if the
+  HBGlyphID     substGlyph;     /* Glyph to be substituted for this glyph if the
                                  * growth factor equals or exceeds the value of
                                  * substThreshold. */
   public:
@@ -146,7 +146,7 @@ struct DuctileGlyphAction
   HBUINT32      variationAxis;  /* The 4-byte tag identifying the ductile axis.
                                  * This would normally be 0x64756374 ('duct'),
                                  * but you may use any axis the font contains. */
-  HBFixed       minimumLimit;   /* The lowest value for the ductility axis that
+  HBFixed       minimumLimit;   /* The lowest value for the ductility axis tha
                                  * still yields an acceptable appearance. Normally
                                  * this will be 1.0. */
   HBFixed       noStretchValue; /* This is the default value that corresponds to
@@ -170,7 +170,7 @@ struct RepeatedAddGlyphAction
   ActionSubrecordHeader
                 header;
   HBUINT16      flags;          /* Currently unused; set to 0. */
-  HBGlyphID16   glyph;          /* Glyph that should be added if the distance factor
+  HBGlyphID     glyph;          /* Glyph that should be added if the distance factor
                                  * is growing. */
   public:
   DEFINE_SIZE_STATIC (10);
@@ -310,7 +310,7 @@ struct WidthDeltaPair
   DEFINE_SIZE_STATIC (24);
 };
 
-typedef OT::Array32Of<WidthDeltaPair> WidthDeltaCluster;
+typedef OT::LArrayOf<WidthDeltaPair> WidthDeltaCluster;
 
 struct JustificationCategory
 {
@@ -358,20 +358,20 @@ struct JustificationHeader
   }
 
   protected:
-  Offset16To<JustificationCategory>
+  OffsetTo<JustificationCategory>
                 justClassTable; /* Offset to the justification category state table. */
-  Offset16To<WidthDeltaCluster>
+  OffsetTo<WidthDeltaCluster>
                 wdcTable;       /* Offset from start of justification table to start
                                  * of the subtable containing the width delta factors
                                  * for the glyphs in your font.
                                  *
                                  * The width delta clusters table. */
-  Offset16To<PostcompensationActionChain>
+  OffsetTo<PostcompensationActionChain>
                 pcTable;        /* Offset from start of justification table to start
                                  * of postcompensation subtable (set to zero if none).
                                  *
                                  * The postcompensation subtable, if present in the font. */
-  Lookup<Offset16To<WidthDeltaCluster>>
+  Lookup<OffsetTo<WidthDeltaCluster>>
                 lookupTable;    /* Lookup table associating glyphs with width delta
                                  * clusters. See the description of Width Delta Clusters
                                  * table for details on how to interpret the lookup values. */
@@ -398,13 +398,13 @@ struct just
   FixedVersion<>version;        /* Version of the justification table
                                  * (0x00010000u for version 1.0). */
   HBUINT16      format;         /* Format of the justification table (set to 0). */
-  Offset16To<JustificationHeader>
+  OffsetTo<JustificationHeader>
                 horizData;      /* Byte offset from the start of the justification table
                                  * to the header for tables that contain justification
                                  * information for horizontal text.
                                  * If you are not including this information,
                                  * store 0. */
-  Offset16To<JustificationHeader>
+  OffsetTo<JustificationHeader>
                 vertData;       /* ditto, vertical */
 
   public:

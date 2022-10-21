@@ -72,14 +72,12 @@ struct head
     UNDERLINE   = 1u<<2,
     OUTLINE     = 1u<<3,
     SHADOW      = 1u<<4,
-    CONDENSED   = 1u<<5,
-    EXPANDED    = 1u<<6,
+    CONDENSED   = 1u<<5
   };
 
   bool is_bold () const      { return macStyle & BOLD; }
   bool is_italic () const    { return macStyle & ITALIC; }
   bool is_condensed () const { return macStyle & CONDENSED; }
-  bool is_expanded () const  { return macStyle & EXPANDED; }
 
   bool sanitize (hb_sanitize_context_t *c) const
   {

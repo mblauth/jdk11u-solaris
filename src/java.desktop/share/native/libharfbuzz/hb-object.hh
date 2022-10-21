@@ -53,7 +53,7 @@ struct hb_lockable_set_t
   item_t *replace_or_insert (T v, lock_t &l, bool replace)
   {
     l.lock ();
-    item_t *item = items.lsearch (v);
+    item_t *item = items.find (v);
     if (item) {
       if (replace) {
         item_t old = *item;
@@ -76,7 +76,7 @@ struct hb_lockable_set_t
   void remove (T v, lock_t &l)
   {
     l.lock ();
-    item_t *item = items.lsearch (v);
+    item_t *item = items.find (v);
     if (item)
     {
       item_t old = *item;
@@ -93,7 +93,7 @@ struct hb_lockable_set_t
   bool find (T v, item_t *i, lock_t &l)
   {
     l.lock ();
-    item_t *item = items.lsearch (v);
+    item_t *item = items.find (v);
     if (item)
       *i = *item;
     l.unlock ();
@@ -139,6 +139,8 @@ struct hb_lockable_set_t
 /*
  * Reference-count.
  */
+
+#define HB_REFERENCE_COUNT_INIT {0}
 
 struct hb_reference_count_t
 {
@@ -195,8 +197,6 @@ struct hb_object_header_t
   hb_reference_count_t ref_count;
   mutable hb_atomic_int_t writable = 0;
   hb_atomic_ptr_t<hb_user_data_array_t> user_data;
-
-  bool is_inert () const { return !ref_count.get_relaxed (); }
 };
 #define HB_OBJECT_HEADER_STATIC {}
 
@@ -217,7 +217,7 @@ static inline void hb_object_trace (const Type *obj, const char *function)
 template <typename Type>
 static inline Type *hb_object_create ()
 {
-  Type *obj = (Type *) hb_calloc (1, sizeof (Type));
+  Type *obj = (Type *) calloc (1, sizeof (Type));
 
   if (unlikely (!obj))
     return obj;
@@ -232,6 +232,11 @@ static inline void hb_object_init (Type *obj)
   obj->header.ref_count.init ();
   obj->header.writable.set_relaxed (true);
   obj->header.user_data.init ();
+}
+template <typename Type>
+static inline bool hb_object_is_inert (const Type *obj)
+{
+  return unlikely (obj->header.ref_count.is_inert ());
 }
 template <typename Type>
 static inline bool hb_object_is_valid (const Type *obj)
@@ -252,7 +257,7 @@ template <typename Type>
 static inline Type *hb_object_reference (Type *obj)
 {
   hb_object_trace (obj, HB_FUNC);
-  if (unlikely (!obj || obj->header.is_inert ()))
+  if (unlikely (!obj || hb_object_is_inert (obj)))
     return obj;
   assert (hb_object_is_valid (obj));
   obj->header.ref_count.inc ();
@@ -262,7 +267,7 @@ template <typename Type>
 static inline bool hb_object_destroy (Type *obj)
 {
   hb_object_trace (obj, HB_FUNC);
-  if (unlikely (!obj || obj->header.is_inert ()))
+  if (unlikely (!obj || hb_object_is_inert (obj)))
     return false;
   assert (hb_object_is_valid (obj));
   if (obj->header.ref_count.dec () != 1)
@@ -279,7 +284,7 @@ static inline void hb_object_fini (Type *obj)
   if (user_data)
   {
     user_data->fini ();
-    hb_free (user_data);
+    free (user_data);
     user_data = nullptr;
   }
 }
@@ -290,7 +295,7 @@ static inline bool hb_object_set_user_data (Type               *obj,
                                             hb_destroy_func_t   destroy,
                                             hb_bool_t           replace)
 {
-  if (unlikely (!obj || obj->header.is_inert ()))
+  if (unlikely (!obj || hb_object_is_inert (obj)))
     return false;
   assert (hb_object_is_valid (obj));
 
@@ -298,14 +303,14 @@ retry:
   hb_user_data_array_t *user_data = obj->header.user_data.get ();
   if (unlikely (!user_data))
   {
-    user_data = (hb_user_data_array_t *) hb_calloc (sizeof (hb_user_data_array_t), 1);
+    user_data = (hb_user_data_array_t *) calloc (sizeof (hb_user_data_array_t), 1);
     if (unlikely (!user_data))
       return false;
     user_data->init ();
     if (unlikely (!obj->header.user_data.cmpexch (nullptr, user_data)))
     {
       user_data->fini ();
-      hb_free (user_data);
+      free (user_data);
       goto retry;
     }
   }
@@ -317,7 +322,7 @@ template <typename Type>
 static inline void *hb_object_get_user_data (Type               *obj,
                                              hb_user_data_key_t *key)
 {
-  if (unlikely (!obj || obj->header.is_inert ()))
+  if (unlikely (!obj || hb_object_is_inert (obj)))
     return nullptr;
   assert (hb_object_is_valid (obj));
   hb_user_data_array_t *user_data = obj->header.user_data.get ();

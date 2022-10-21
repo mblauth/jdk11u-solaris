@@ -58,7 +58,7 @@ struct AxisValueMap
   DEFINE_SIZE_STATIC (4);
 };
 
-struct SegmentMaps : Array16Of<AxisValueMap>
+struct SegmentMaps : ArrayOf<AxisValueMap>
 {
   int map (int value, unsigned int from_offset = 0, unsigned int to_offset = 1) const
   {
