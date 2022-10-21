@@ -142,13 +142,11 @@ struct AxisRecord
     max = hb_max (default_, maxValue / 65536.f);
   }
 
-  public:
-  Tag           axisTag;        /* Tag identifying the design variation for the axis. */
   protected:
+  Tag           axisTag;        /* Tag identifying the design variation for the axis. */
   HBFixed       minValue;       /* The minimum coordinate value for the axis. */
   HBFixed       defaultValue;   /* The default coordinate value for the axis. */
   HBFixed       maxValue;       /* The maximum coordinate value for the axis. */
-  public:
   HBUINT16      flags;          /* Axis flags. */
   NameID        axisNameID;     /* The name ID for entries in the 'name' table that
                                  * provide a display name for this axis. */
@@ -213,15 +211,16 @@ struct fvar
     if (!axis_index) axis_index = &i;
     *axis_index = HB_OT_VAR_NO_AXIS_INDEX;
     auto axes = get_axes ();
-    return axes.lfind (tag, axis_index) && ((void) axes[*axis_index].get_axis_deprecated (info), true);
+    return axes.lfind (tag, axis_index) && (axes[*axis_index].get_axis_deprecated (info), true);
   }
 #endif
+
   bool
   find_axis_info (hb_tag_t tag, hb_ot_var_axis_info_t *info) const
   {
     unsigned i;
     auto axes = get_axes ();
-    return axes.lfind (tag, &i) && ((void) axes[i].get_axis_info (i, info), true);
+    return axes.lfind (tag, &i) && (axes[i].get_axis_info (i, info), true);
   }
 
   int normalize_axis_value (unsigned int axis_index, float v) const
@@ -263,7 +262,7 @@ struct fvar
     if (coords_length && *coords_length)
     {
       hb_array_t<const HBFixed> instanceCoords = instance->get_coordinates (axisCount)
-                                                         .sub_array (0, coords_length);
+                                                         .sub_array (0, *coords_length);
       for (unsigned int i = 0; i < instanceCoords.length; i++)
         coords[i] = instanceCoords.arrayZ[i].to_float ();
     }
@@ -290,7 +289,7 @@ struct fvar
     ;
   }
 
-  public:
+  protected:
   hb_array_t<const AxisRecord> get_axes () const
   { return hb_array (&(this+firstAxis), axisCount); }
 
@@ -304,7 +303,7 @@ struct fvar
   protected:
   FixedVersion<>version;        /* Version of the fvar table
                                  * initially set to 0x00010000u */
-  Offset16To<AxisRecord>
+  OffsetTo<AxisRecord>
                 firstAxis;      /* Offset in bytes from the beginning of the table
                                  * to the start of the AxisRecord array. */
   HBUINT16      reserved;       /* This field is permanently reserved. Set to 2. */

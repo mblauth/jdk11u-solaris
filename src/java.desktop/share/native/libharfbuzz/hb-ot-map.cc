@@ -54,6 +54,7 @@ hb_ot_map_builder_t::hb_ot_map_builder_t (hb_face_t *face_,
   face = face_;
   props = *props_;
 
+
   /* Fetch script/language indices for GSUB/GPOS.  We need these later to skip
    * features not available in either table and not waste precious bits for them. */
 
@@ -62,28 +63,12 @@ hb_ot_map_builder_t::hb_ot_map_builder_t (hb_face_t *face_,
   hb_tag_t script_tags[HB_OT_MAX_TAGS_PER_SCRIPT];
   hb_tag_t language_tags[HB_OT_MAX_TAGS_PER_LANGUAGE];
 
-  hb_ot_tags_from_script_and_language (props.script,
-                                       props.language,
-                                       &script_count,
-                                       script_tags,
-                                       &language_count,
-                                       language_tags);
+  hb_ot_tags_from_script_and_language (props.script, props.language, &script_count, script_tags, &language_count, language_tags);
 
-  for (unsigned int table_index = 0; table_index < 2; table_index++)
-  {
+  for (unsigned int table_index = 0; table_index < 2; table_index++) {
     hb_tag_t table_tag = table_tags[table_index];
-    found_script[table_index] = (bool) hb_ot_layout_table_select_script (face,
-                                                                         table_tag,
-                                                                         script_count,
-                                                                         script_tags,
-                                                                         &script_index[table_index],
-                                                                         &chosen_script[table_index]);
-    hb_ot_layout_script_select_language (face,
-                                         table_tag,
-                                         script_index[table_index],
-                                         language_count,
-                                         language_tags,
-                                         &language_index[table_index]);
+    found_script[table_index] = (bool) hb_ot_layout_table_select_script (face, table_tag, script_count, script_tags, &script_index[table_index], &chosen_script[table_index]);
+    hb_ot_layout_script_select_language (face, table_tag, script_index[table_index], language_count, language_tags, &language_index[table_index]);
   }
 }
 
@@ -117,8 +102,7 @@ hb_ot_map_builder_t::add_lookups (hb_ot_map_t  &m,
                                   hb_mask_t     mask,
                                   bool          auto_zwnj,
                                   bool          auto_zwj,
-                                  bool          random,
-                                  bool          per_syllable)
+                                  bool          random)
 {
   unsigned int lookup_indices[32];
   unsigned int offset, len;
@@ -146,7 +130,6 @@ hb_ot_map_builder_t::add_lookups (hb_ot_map_t  &m,
       lookup->auto_zwnj = auto_zwnj;
       lookup->auto_zwj = auto_zwj;
       lookup->random = random;
-      lookup->per_syllable = per_syllable;
     }
 
     offset += len;
@@ -167,8 +150,9 @@ void
 hb_ot_map_builder_t::compile (hb_ot_map_t                  &m,
                               const hb_ot_shape_plan_key_t &key)
 {
-  unsigned int global_bit_shift = 8 * sizeof (hb_mask_t) - 1;
-  unsigned int global_bit_mask = 1u << global_bit_shift;
+  static_assert ((!(HB_GLYPH_FLAG_DEFINED & (HB_GLYPH_FLAG_DEFINED + 1))), "");
+  unsigned int global_bit_mask = HB_GLYPH_FLAG_DEFINED + 1;
+  unsigned int global_bit_shift = hb_popcount (HB_GLYPH_FLAG_DEFINED);
 
   m.global_mask = global_bit_mask;
 
@@ -221,8 +205,7 @@ hb_ot_map_builder_t::compile (hb_ot_map_t                  &m,
 
 
   /* Allocate bits now */
-  static_assert ((!(HB_GLYPH_FLAG_DEFINED & (HB_GLYPH_FLAG_DEFINED + 1))), "");
-  unsigned int next_bit = hb_popcount (HB_GLYPH_FLAG_DEFINED) + 1;
+  unsigned int next_bit = global_bit_shift + 1;
 
   for (unsigned int i = 0; i < feature_infos.length; i++)
   {
@@ -237,7 +220,7 @@ hb_ot_map_builder_t::compile (hb_ot_map_t                  &m,
       /* Limit bits per feature. */
       bits_needed = hb_min (HB_OT_MAP_MAX_BITS, hb_bit_storage (info->max_value));
 
-    if (!info->max_value || next_bit + bits_needed >= global_bit_shift)
+    if (!info->max_value || next_bit + bits_needed > 8 * sizeof (hb_mask_t))
       continue; /* Feature disabled, or not enough bits. */
 
 
@@ -279,7 +262,6 @@ hb_ot_map_builder_t::compile (hb_ot_map_t                  &m,
     map->auto_zwnj = !(info->flags & F_MANUAL_ZWNJ);
     map->auto_zwj = !(info->flags & F_MANUAL_ZWJ);
     map->random = !!(info->flags & F_RANDOM);
-    map->per_syllable = !!(info->flags & F_PER_SYLLABLE);
     if ((info->flags & F_GLOBAL) && info->max_value == 1) {
       /* Uses the global bit */
       map->shift = global_bit_shift;
@@ -292,6 +274,7 @@ hb_ot_map_builder_t::compile (hb_ot_map_t                  &m,
     }
     map->_1_mask = (1u << map->shift) & map->mask;
     map->needs_fallback = !found;
+
   }
   feature_infos.shrink (0); /* Done with these */
 
@@ -322,8 +305,7 @@ hb_ot_map_builder_t::compile (hb_ot_map_t                  &m,
                        m.features[i].mask,
                        m.features[i].auto_zwnj,
                        m.features[i].auto_zwj,
-                       m.features[i].random,
-                       m.features[i].per_syllable);
+                       m.features[i].random);
 
       /* Sort lookups and merge duplicates */
       if (last_num_lookups < m.lookups[table_index].length)
