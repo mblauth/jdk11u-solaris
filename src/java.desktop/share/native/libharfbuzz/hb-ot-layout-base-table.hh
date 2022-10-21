@@ -41,10 +41,7 @@ namespace OT {
 
 struct BaseCoordFormat1
 {
-  hb_position_t get_coord (hb_font_t *font, hb_direction_t direction) const
-  {
-    return HB_DIRECTION_IS_HORIZONTAL (direction) ? font->em_scale_y (coordinate) : font->em_scale_x (coordinate);
-  }
+  hb_position_t get_coord () const { return coordinate; }
 
   bool sanitize (hb_sanitize_context_t *c) const
   {
@@ -61,10 +58,10 @@ struct BaseCoordFormat1
 
 struct BaseCoordFormat2
 {
-  hb_position_t get_coord (hb_font_t *font, hb_direction_t direction) const
+  hb_position_t get_coord () const
   {
     /* TODO */
-    return HB_DIRECTION_IS_HORIZONTAL (direction) ? font->em_scale_y (coordinate) : font->em_scale_x (coordinate);
+    return coordinate;
   }
 
   bool sanitize (hb_sanitize_context_t *c) const
@@ -76,7 +73,7 @@ struct BaseCoordFormat2
   protected:
   HBUINT16      format;         /* Format identifier--format = 2 */
   FWORD         coordinate;     /* X or Y value, in design units */
-  HBGlyphID16   referenceGlyph; /* Glyph ID of control glyph */
+  HBGlyphID     referenceGlyph; /* Glyph ID of control glyph */
   HBUINT16      coordPoint;     /* Index of contour point on the
                                  * reference glyph */
   public:
@@ -90,10 +87,9 @@ struct BaseCoordFormat3
                            hb_direction_t direction) const
   {
     const Device &device = this+deviceTable;
-
-    return HB_DIRECTION_IS_HORIZONTAL (direction)
-         ? font->em_scale_y (coordinate) + device.get_y_delta (font, var_store)
-         : font->em_scale_x (coordinate) + device.get_x_delta (font, var_store);
+    return coordinate + (HB_DIRECTION_IS_VERTICAL (direction) ?
+                         device.get_y_delta (font, var_store) :
+                         device.get_x_delta (font, var_store));
   }
 
 
@@ -107,7 +103,7 @@ struct BaseCoordFormat3
   protected:
   HBUINT16      format;         /* Format identifier--format = 3 */
   FWORD         coordinate;     /* X or Y value, in design units */
-  Offset16To<Device>
+  OffsetTo<Device>
                 deviceTable;    /* Offset to Device table for X or
                                  * Y value, from beginning of
                                  * BaseCoord table (may be NULL). */
@@ -124,8 +120,8 @@ struct BaseCoord
                            hb_direction_t        direction) const
   {
     switch (u.format) {
-    case 1: return u.format1.get_coord (font, direction);
-    case 2: return u.format2.get_coord (font, direction);
+    case 1: return u.format1.get_coord ();
+    case 2: return u.format2.get_coord ();
     case 3: return u.format3.get_coord (font, var_store, direction);
     default:return 0;
     }
@@ -177,11 +173,11 @@ struct FeatMinMaxRecord
   protected:
   Tag           tag;            /* 4-byte feature identification tag--must
                                  * match feature tag in FeatureList */
-  Offset16To<BaseCoord>
+  OffsetTo<BaseCoord>
                 minCoord;       /* Offset to BaseCoord table that defines
                                  * the minimum extent value, from beginning
                                  * of MinMax table (may be NULL) */
-  Offset16To<BaseCoord>
+  OffsetTo<BaseCoord>
                 maxCoord;       /* Offset to BaseCoord table that defines
                                  * the maximum extent value, from beginning
                                  * of MinMax table (may be NULL) */
@@ -216,15 +212,15 @@ struct MinMax
   }
 
   protected:
-  Offset16To<BaseCoord>
+  OffsetTo<BaseCoord>
                 minCoord;       /* Offset to BaseCoord table that defines
                                  * minimum extent value, from the beginning
                                  * of MinMax table (may be NULL) */
-  Offset16To<BaseCoord>
+  OffsetTo<BaseCoord>
                 maxCoord;       /* Offset to BaseCoord table that defines
                                  * maximum extent value, from the beginning
                                  * of MinMax table (may be NULL) */
-  SortedArray16Of<FeatMinMaxRecord>
+  SortedArrayOf<FeatMinMaxRecord>
                 featMinMaxRecords;
                                 /* Array of FeatMinMaxRecords, in alphabetical
                                  * order by featureTableTag */
@@ -251,7 +247,7 @@ struct BaseValues
   Index         defaultIndex;   /* Index number of default baseline for this
                                  * script — equals index position of baseline tag
                                  * in baselineTags array of the BaseTagList */
-  Array16OfOffset16To<BaseCoord>
+  OffsetArrayOf<BaseCoord>
                 baseCoords;     /* Number of BaseCoord tables defined — should equal
                                  * baseTagCount in the BaseTagList
                                  *
@@ -279,7 +275,7 @@ struct BaseLangSysRecord
 
   protected:
   Tag           baseLangSysTag; /* 4-byte language system identification tag */
-  Offset16To<MinMax>
+  OffsetTo<MinMax>
                 minMax;         /* Offset to MinMax table, from beginning
                                  * of BaseScript table */
   public:
@@ -309,13 +305,13 @@ struct BaseScript
   }
 
   protected:
-  Offset16To<BaseValues>
+  OffsetTo<BaseValues>
                 baseValues;     /* Offset to BaseValues table, from beginning
                                  * of BaseScript table (may be NULL) */
-  Offset16To<MinMax>
+  OffsetTo<MinMax>
                 defaultMinMax;  /* Offset to MinMax table, from beginning of
                                  * BaseScript table (may be NULL) */
-  SortedArray16Of<BaseLangSysRecord>
+  SortedArrayOf<BaseLangSysRecord>
                 baseLangSysRecords;
                                 /* Number of BaseLangSysRecords
                                  * defined — may be zero (0) */
@@ -343,7 +339,7 @@ struct BaseScriptRecord
 
   protected:
   Tag           baseScriptTag;  /* 4-byte script identification tag */
-  Offset16To<BaseScript>
+  OffsetTo<BaseScript>
                 baseScript;     /* Offset to BaseScript table, from beginning
                                  * of BaseScriptList */
 
@@ -368,7 +364,7 @@ struct BaseScriptList
   }
 
   protected:
-  SortedArray16Of<BaseScriptRecord>
+  SortedArrayOf<BaseScriptRecord>
                         baseScriptRecords;
 
   public:
@@ -430,12 +426,12 @@ struct Axis
   }
 
   protected:
-  Offset16To<SortedArray16Of<Tag>>
+  OffsetTo<SortedArrayOf<Tag>>
                 baseTagList;    /* Offset to BaseTagList table, from beginning
                                  * of Axis table (may be NULL)
                                  * Array of 4-byte baseline identification tags — must
                                  * be in alphabetical order */
-  Offset16To<BaseScriptList>
+  OffsetTo<BaseScriptList>
                 baseScriptList; /* Offset to BaseScriptList table, from beginning
                                  * of Axis table
                                  * Array of BaseScriptRecords, in alphabetical order
@@ -505,11 +501,11 @@ struct BASE
 
   protected:
   FixedVersion<>version;        /* Version of the BASE table */
-  Offset16To<Axis>hAxis;                /* Offset to horizontal Axis table, from beginning
+  OffsetTo<Axis>hAxis;          /* Offset to horizontal Axis table, from beginning
                                  * of BASE table (may be NULL) */
-  Offset16To<Axis>vAxis;                /* Offset to vertical Axis table, from beginning
+  OffsetTo<Axis>vAxis;          /* Offset to vertical Axis table, from beginning
                                  * of BASE table (may be NULL) */
-  Offset32To<VariationStore>
+  LOffsetTo<VariationStore>
                 varStore;       /* Offset to the table of Item Variation
                                  * Store--from beginning of BASE
                                  * header (may be NULL).  Introduced
