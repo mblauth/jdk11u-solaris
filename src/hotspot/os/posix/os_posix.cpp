@@ -238,6 +238,8 @@ static int util_posix_fallocate(int fd, off_t offset, off_t len) {
     return ftruncate(fd, len);
   }
   return -1;
+#elif defined(__SunOS_5_10)
+  return EOPNOTSUPP;
 #else
   return posix_fallocate(fd, offset, len);
 #endif
