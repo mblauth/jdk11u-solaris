@@ -210,6 +210,7 @@ CipherInit(crypto_ctx_t *context, int encrypt, ucrypto_mech_t mech,
 
   if (J2UC_DEBUG) printf("CipherInit: mech %i, key %i(%i), iv %i(%i) tagLen %i, aad %i(%i)\n",
                     mech, jKey, jKeyLen, jIv, jIvLen, tagLen, jAad, jAadLen);
+#ifndef __solaris__
   if (mech == CRYPTO_AES_CTR) {
     ivLen = sizeof(CK_AES_CTR_PARAMS);
     iv = (CK_AES_CTR_PARAMS*) malloc(ivLen);
@@ -217,7 +218,9 @@ CipherInit(crypto_ctx_t *context, int encrypt, ucrypto_mech_t mech,
 
     ((CK_AES_CTR_PARAMS*)iv)->ulCounterBits = 32;
     memcpy(((CK_AES_CTR_PARAMS*)iv)->cb, jIv, 16);
-  } else if (mech == CRYPTO_AES_GCM) {
+  } else
+#endif
+  if (mech == CRYPTO_AES_GCM) {
     ivLen = sizeof(CK_AES_GCM_PARAMS);
     iv = (CK_AES_GCM_PARAMS*) malloc(ivLen);
     if (iv == NULL) return -1;
@@ -242,9 +245,12 @@ CipherInit(crypto_ctx_t *context, int encrypt, ucrypto_mech_t mech,
   }
 
   if (iv != jIv) {
+#ifndef __solaris__
     if (mech == CRYPTO_AES_CTR) {
       free((CK_AES_CTR_PARAMS*)iv);
-    } else {
+    } else
+#endif    
+    {
       free((CK_AES_GCM_PARAMS*)iv);
     }
   }
