@@ -816,7 +816,7 @@ const char* JVMFlag::flag_error_str(JVMFlag::Error error) {
 #define ARCH_NOTPRODUCT_FLAG_STRUCT(     type, name, value, doc) { #type, XSTR(name), (void*) &name, NOT_PRODUCT_ARG(doc) JVMFlag::Flags(JVMFlag::DEFAULT | JVMFlag::KIND_ARCH | JVMFlag::KIND_NOT_PRODUCT) },
 
 static JVMFlag flagTable[] = {
-  VM_FLAGS(RUNTIME_DEVELOP_FLAG_STRUCT, \
+  VMFLAGS(RUNTIME_DEVELOP_FLAG_STRUCT, \
            RUNTIME_PD_DEVELOP_FLAG_STRUCT, \
            RUNTIME_PRODUCT_FLAG_STRUCT, \
            RUNTIME_PD_PRODUCT_FLAG_STRUCT, \

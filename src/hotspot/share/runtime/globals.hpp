@@ -2685,7 +2685,7 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
   experimental(bool, UseFastUnorderedTimeStamps, false,                     \
           "Use platform unstable time where supported for timestamps only")
 
-#define VM_FLAGS(develop,                                                   \
+#define VMFLAGS(develop,                                                   \
                  develop_pd,                                                \
                  product,                                                   \
                  product_pd,                                                \
@@ -2790,7 +2790,7 @@ define_pd_global(uint64_t,MaxRAM,                    1ULL*G);
 
 #define IGNORE_WRITEABLE(type)
 
-VM_FLAGS(DECLARE_DEVELOPER_FLAG, \
+VMFLAGS(DECLARE_DEVELOPER_FLAG, \
          DECLARE_PD_DEVELOPER_FLAG, \
          DECLARE_PRODUCT_FLAG, \
          DECLARE_PD_PRODUCT_FLAG, \

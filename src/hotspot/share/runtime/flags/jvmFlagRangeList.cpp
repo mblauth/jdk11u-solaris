@@ -325,7 +325,7 @@ void JVMFlagRangeList::init(void) {
 
   _ranges = new (ResourceObj::C_HEAP, mtArguments) GrowableArray<JVMFlagRange*>(INITIAL_RANGES_SIZE, true);
 
-  emit_range_no(NULL VM_FLAGS(EMIT_RANGE_DEVELOPER_FLAG,
+  emit_range_no(NULL VMFLAGS(EMIT_RANGE_DEVELOPER_FLAG,
                               EMIT_RANGE_PD_DEVELOPER_FLAG,
                               EMIT_RANGE_PRODUCT_FLAG,
                               EMIT_RANGE_PD_PRODUCT_FLAG,
