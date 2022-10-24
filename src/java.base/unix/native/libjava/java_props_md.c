@@ -361,8 +361,8 @@ static int ParseLocale(JNIEnv* env, int cat, char ** std_language, char ** std_s
     return 1;
 }
 
-#ifdef _AIX
-
+#if defined(_AIX) || defined(__SunOS_5_10)
+#include <ctype.h>
 /*
  * AIX doesn't have strcasestr. Implement it locally in this file.
  *
