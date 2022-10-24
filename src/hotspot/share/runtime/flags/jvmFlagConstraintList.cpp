@@ -275,7 +275,7 @@ JVMFlagConstraint::ConstraintType JVMFlagConstraintList::_validating_type = JVMF
 void JVMFlagConstraintList::init(void) {
   _constraints = new (ResourceObj::C_HEAP, mtArguments) GrowableArray<JVMFlagConstraint*>(INITIAL_CONSTRAINTS_SIZE, true);
 
-  emit_constraint_no(NULL VM_FLAGS(EMIT_CONSTRAINT_DEVELOPER_FLAG,
+  emit_constraint_no(NULL VMFLAGS(EMIT_CONSTRAINT_DEVELOPER_FLAG,
                                    EMIT_CONSTRAINT_PD_DEVELOPER_FLAG,
                                    EMIT_CONSTRAINT_PRODUCT_FLAG,
                                    EMIT_CONSTRAINT_PD_PRODUCT_FLAG,

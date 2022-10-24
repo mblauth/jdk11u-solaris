@@ -115,7 +115,7 @@ void JVMFlagWriteableList::init(void) {
 
   _controls = new (ResourceObj::C_HEAP, mtArguments) GrowableArray<JVMFlagWriteable*>(INITIAL_WRITEABLES_SIZE, true);
 
-  emit_writeable_no(NULL VM_FLAGS(EMIT_WRITEABLE_DEVELOPER_FLAG,
+  emit_writeable_no(NULL VMFLAGS(EMIT_WRITEABLE_DEVELOPER_FLAG,
                                   EMIT_WRITEABLE_PD_DEVELOPER_FLAG,
                                   EMIT_WRITEABLE_PRODUCT_FLAG,
                                   EMIT_WRITEABLE_PD_PRODUCT_FLAG,
