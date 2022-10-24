@@ -337,7 +337,11 @@ static DIR *open_directory_secure(const char* dirname) {
   }
 
   // Check to make sure fd and dirp are referencing the same file system object.
+#ifdef __SunOS_5_10
+  if (!is_same_fsobject(fd, dirp->dd_fd)) {
+#else
   if (!is_same_fsobject(fd, dirp->d_fd)) {
+#endif
     // The directory is not secure.
     os::close(fd);
     os::closedir(dirp);
@@ -369,7 +373,11 @@ static DIR *open_directory_secure_cwd(const char* dirname, int *saved_cwd_fd) {
     // Directory doesn't exist or is insecure, so there is nothing to cleanup.
     return dirp;
   }
+#ifdef __SunOS_5_10
+  int fd = dirp->dd_fd;
+#else
   int fd = dirp->d_fd;
+#endif
 
   // Open a fd to the cwd and save it off.
   int result;
