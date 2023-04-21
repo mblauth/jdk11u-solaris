@@ -977,3 +977,4 @@ cmsUInt32Number CMSEXPORT cmsChannelsOf(cmsColorSpaceSignature ColorSpace)
     if (n < 0) return 3;
     return (cmsUInt32Number)n;
 }
+
